@@ -24,7 +24,7 @@ def read_csv_data(file_path):
     data = pd.read_csv(file_path, skiprows=1, header=None)
     disp = data[1] * -1000  # mm to um
     force = data[2] * 1000  # N to mN
-    return disp, force
+    return {"disp": disp, "force": force}
 
 if __name__ == "__main__":
     # Hertz接触理论参数
@@ -48,16 +48,16 @@ if __name__ == "__main__":
 
 
     # # 读取CSV文件
-    # disp_1, force_1 = read_csv_data('hertz_linear_elastic_out.csv')
-    # disp_2, force_2 = read_csv_data('hertz_linear_hardening_out.csv')
-    # disp_3, force_3 = read_csv_data('hertz_linear_hardening_mesh_refine1_penalty_1e12_dt_0.1_out.csv')
-    # disp_4, force_4 = read_csv_data('hertz_test.csv')
-    # # disp_half_space, force_half_space = read_csv_data('hertz_elasticity_half_space_out.csv')
+    # results_1 = read_csv_data('hertz_linear_elastic_out.csv')
+    # results_2 = read_csv_data('hertz_linear_hardening_out.csv')
+    # results_3 = read_csv_data('hertz_linear_hardening_mesh_refine1_penalty_1e12_dt_0.1_out.csv')
+    # results_4 = read_csv_data('hertz_test.csv')
+    # # results_half_space = read_csv_data('hertz_elasticity_half_space_out.csv')
     # # 创建图形和坐标轴
     # fig, ax = plt.subplots(1, 1, figsize=(4, 3.6))
-    # ax.plot(disp_1[::5], force_1[::5], marker='^', markersize=1, linewidth=1, color='blue', label='FEA elastic')
-    # ax.plot(disp_2[::1], force_2[::1], marker='v', markersize=1, linewidth=1, color='green', alpha=1, label='FEA plastic')
-    # # ax.plot(disp_half_space, force_half_space, marker='o', markersize=5, linewidth=1, color='orange', label='FEA half space')
+    # ax.plot(results_1["disp"][::5], results_1["force"][::5], marker='^', markersize=1, linewidth=1, color='blue', label='FEA elastic')
+    # ax.plot(results_2["disp"][::1], results_2["force"][::1], marker='v', markersize=1, linewidth=1, color='green', alpha=1, label='FEA plastic')
+    # # ax.plot(results_half_space["disp"], results_half_space["force"], marker='o', markersize=5, linewidth=1, color='orange', label='FEA half space')
     # # ax.plot(u_hertz, f_hertz, linestyle='--', color='red', label='Hertz Theory')  # mm to um
     # ax.plot(u_tatara, f_tatara, linestyle=':', color='purple', label='Tatara Theory')   
     # ax.set_xlabel('Displacement (um)')
@@ -68,12 +68,27 @@ if __name__ == "__main__":
     # fig.savefig('force_disp.pdf')
 
 
-    disp_4, force_4 = read_csv_data('hertz_test.csv')
+    results_4 = read_csv_data('hertz_test.csv')
     fig, ax = plt.subplots(1, 1, figsize=(4, 3.6))
-    ax.plot(disp_4[::1], force_4[::1], marker='o', markersize=1, linewidth=1, color='green', alpha=1, label='FEA plastic')
+    ax.plot(results_4["disp"][::1], results_4["force"][::1], marker='o', markersize=1, linewidth=1, color='green', alpha=1, label='FEA plastic')
     ax.set_xlabel('Displacement (um)')
     ax.set_ylabel('Force (mN)')
     ax.set_title('Force-Displacement Curve')
     fig.tight_layout()
     fig.savefig('power_hardening_law_force_disp.pdf')
 
+
+
+    voce_results = read_csv_data('hertz_voce_hardening.csv')
+    linear_results = read_csv_data('hertz_linear_hardening.csv')
+    voce_q10_b10 = read_csv_data('hertz_voce_q10_b10.csv')
+    fig, ax = plt.subplots(1, 1, figsize=(4, 3.6))
+    ax.plot(voce_results["disp"], voce_results["force"], marker='o', markersize=1, linewidth=1, color='blue', alpha=1, label='FEA Voce')
+    ax.plot(linear_results["disp"], linear_results["force"], marker='o', markersize=1, linewidth=1, color='green', alpha=1, label='FEA Linear')
+    ax.plot(voce_q10_b10["disp"], voce_q10_b10["force"], marker='o', markersize=1, linewidth=1, color='red', alpha=1, label='FEA Voce q10 b10')
+    ax.set_xlabel('Displacement (um)')
+    ax.set_ylabel('Force (mN)')
+    ax.set_title('Force-Displacement Curve')
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig('voce_vs_linear_hardening_force_disp.pdf')
