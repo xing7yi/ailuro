@@ -15,7 +15,7 @@
     # file = ../hertz_contact_refine1.msh
     file = ../hertz_contact_structural_ref_1.msh
   []
-  uniform_refine = 0  # 全局细分1次，单元数增加4倍
+  uniform_refine = 1  # 全局细分1次，单元数增加4倍
   allow_renumbering = false
   coord_type = RZ  # 使用RZ坐标系:轴对称
   rz_coord_axis = y # RZ坐标系中的对称轴
