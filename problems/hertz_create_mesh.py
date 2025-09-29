@@ -427,9 +427,9 @@ def create_hertz_model_structural_mesh(file_name:str,refine_level:int=1):
     f.fragment([(2, surf_circle)], line_cuts_circle)  # 将圆切割
 
     # 定义一个长方形
-    width = 1.2  # 长方形的宽度
-    height = 0.1  # 长方形的高度
-    y_offset = 1*height  # 长方形的y偏移量
+    width = 1.5  # 长方形的宽度
+    height = 0.5  # 长方形的高度
+    y_offset = 0*height  # 长方形的y偏移量
     surf_rectangle = f.addRectangle(0, radius + y_offset, 0, width, height)  # 定义一个长方形
 
     # p_cut_8 = f.addPoint(0.3*radius, radius + 1.1*y_offset + height, 0)
@@ -456,7 +456,8 @@ def create_hertz_model_structural_mesh(file_name:str,refine_level:int=1):
         "Specimen_Bottom_Edge": [7, 12],        
         "Indenter_Top_Edge": [17],
         "Indenter_Left_Edge": [18],
-        "Indenter_Bottom_Edge": [15]
+        "Indenter_Bottom_Edge": [15],
+        "Indenter_Right_Edge": [16]
     }
     for edge_name, tags in bc_edge_group_dict.items():
         group = gmsh.model.addPhysicalGroup(1, tags)
@@ -466,8 +467,8 @@ def create_hertz_model_structural_mesh(file_name:str,refine_level:int=1):
 
     edge_config_groups = [
         {"ids":[6,8,13],"name":"","div_num":10*N,"progression_factor":1.0},
-        {"ids":[18,16],"name":"","div_num":3,"progression_factor":1.0},
-        {"ids":[15,17],"name":"","div_num":8*N,"progression_factor":1.0}
+        {"ids":[18,16],"name":"","div_num":1*N,"progression_factor":1.0},
+        {"ids":[15,17],"name":"","div_num":2*N,"progression_factor":1.0}
         # {"ids" : [12,6,19],"name":"半圆_中_纵","div_num" : 8*N,"progression_factor":1.0},
         # {"ids" : [11,9,14],"name":"半圆_下_纵","div_num" : 8*N,"progression_factor":1.0},
         # {"ids" : [17,4,7,10],"name":"半圆_左","div_num" : 3*N,"progression_factor":1.0},
@@ -652,4 +653,4 @@ if __name__ == "__main__":
     # create_hertz_model_refine("hertz_contact_refine2.msh",refine_level=2)
     # create_hertz_model_half_space("hertz_contact_half_space.msh",refine_level=1)
     # create_hertz_model_contact_area_refine("hertz_contact_refine.msh")
-    create_hertz_model_structural_mesh("hertz_contact_structural_ref_1.5.msh",1.5)    #bottom edge div num : 30*1
+    create_hertz_model_structural_mesh("hertz_contact_structural_ref_1.msh",1)    #bottom edge div num : 30*1

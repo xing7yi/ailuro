@@ -237,7 +237,7 @@
 []
 
 [Outputs]
-  file_base = hertz_test
+  # file_base = hertz_test
   [out]
     type = Exodus
     elemental_as_nodal = true

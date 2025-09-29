@@ -21,10 +21,12 @@ def hertz_force(u, E_eq, R):
     return f
 
 def read_csv_data(file_path):
-    data = pd.read_csv(file_path, skiprows=1, header=None)
-    disp = data[1] * -1000  # mm to um
-    force = data[2] * 1000  # N to mN
-    return {"disp": disp, "force": force}
+    data = pd.read_csv(file_path)
+    disp = np.abs(data["disp"]) * 1000  # mm to um
+    force_nodal = np.abs(data["spec_nodalsum"]) * 1  # N to mN
+    force_sideset = np.abs(data["spec_reaction"]) * 1  # N to mN
+    return {"disp": disp, "force_nodal": force_nodal, "force_sideset": force_sideset}
+
 
 if __name__ == "__main__":
     # Hertz接触理论参数
@@ -68,27 +70,29 @@ if __name__ == "__main__":
     # fig.savefig('force_disp.pdf')
 
 
-    results_4 = read_csv_data('hertz_test.csv')
+    hertz2d_ad_results = read_csv_data('hertz2d_ad.csv')
     fig, ax = plt.subplots(1, 1, figsize=(4, 3.6))
-    ax.plot(results_4["disp"][::1], results_4["force"][::1], marker='o', markersize=1, linewidth=1, color='green', alpha=1, label='FEA plastic')
+    ax.plot(hertz2d_ad_results["disp"][::1], hertz2d_ad_results["force_nodal"][::1], marker='o', markersize=1, linewidth=1, color='green', alpha=1, label='FEA plastic')
+    # ax.plot(test_data["disp"], test_data["force_nodal"], marker='o', markersize=2, color='green', label='FEA Test')
+
     ax.set_xlabel('Displacement (um)')
     ax.set_ylabel('Force (mN)')
     ax.set_title('Force-Displacement Curve')
     fig.tight_layout()
-    fig.savefig('power_hardening_law_force_disp.pdf')
+    fig.savefig('plot_force_disp.pdf')
 
 
 
-    voce_results = read_csv_data('hertz_voce_hardening.csv')
-    linear_results = read_csv_data('hertz_linear_hardening.csv')
-    voce_q10_b10 = read_csv_data('hertz_voce_q10_b10.csv')
-    fig, ax = plt.subplots(1, 1, figsize=(4, 3.6))
-    ax.plot(voce_results["disp"], voce_results["force"], marker='o', markersize=1, linewidth=1, color='blue', alpha=1, label='FEA Voce')
-    ax.plot(linear_results["disp"], linear_results["force"], marker='o', markersize=1, linewidth=1, color='green', alpha=1, label='FEA Linear')
-    ax.plot(voce_q10_b10["disp"], voce_q10_b10["force"], marker='o', markersize=1, linewidth=1, color='red', alpha=1, label='FEA Voce q10 b10')
-    ax.set_xlabel('Displacement (um)')
-    ax.set_ylabel('Force (mN)')
-    ax.set_title('Force-Displacement Curve')
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig('voce_vs_linear_hardening_force_disp.pdf')
+    # voce_results = read_csv_data('hertz_voce_hardening.csv')
+    # linear_results = read_csv_data('hertz_linear_hardening.csv')
+    # voce_q10_b10 = read_csv_data('hertz_voce_q10_b10.csv')
+    # fig, ax = plt.subplots(1, 1, figsize=(4, 3.6))
+    # ax.plot(voce_results["disp"], voce_results["force"], marker='o', markersize=1, linewidth=1, color='blue', alpha=1, label='FEA Voce')
+    # ax.plot(linear_results["disp"], linear_results["force"], marker='o', markersize=1, linewidth=1, color='green', alpha=1, label='FEA Linear')
+    # ax.plot(voce_q10_b10["disp"], voce_q10_b10["force"], marker='o', markersize=1, linewidth=1, color='red', alpha=1, label='FEA Voce q10 b10')
+    # ax.set_xlabel('Displacement (um)')
+    # ax.set_ylabel('Force (mN)')
+    # ax.set_title('Force-Displacement Curve')
+    # ax.legend()
+    # fig.tight_layout()
+    # fig.savefig('voce_vs_linear_hardening_force_disp.pdf')

@@ -47,7 +47,7 @@
     # generate_output = '
     #   vonmises_stress
     # '
-    save_in = 'saved_x saved_y'    
+    save_in = 'saved_x saved_y'
   []
   [specimen]
     block = 'Specimen_Body'
@@ -68,8 +68,8 @@
     #   strain_xx strain_yy 
     #   vonmises_stress
     #   plastic_strain_xx plastic_strain_yy
-    # '    
-    save_in = 'saved_x saved_y'    
+    # '
+    save_in = 'saved_x saved_y'
   []
 []
 
@@ -133,7 +133,6 @@
     type = ADComputeLinearElasticStress
     block = 'Indenter_Body'
   []
-
 
   [elasticity_tensor_specimen]
     type = ADComputeIsotropicElasticityTensor
@@ -210,7 +209,7 @@
   l_tol = 1e-08         # linear tolerance
   start_time = 0.0
 
-  end_time = 10 # Executioner  
+  end_time = 10 # Executioner
 
   # dt = 0.025  # 初始时间步长
   dtmin = 1e-5
