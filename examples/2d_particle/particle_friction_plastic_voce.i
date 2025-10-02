@@ -200,6 +200,11 @@
         variable = disp_y
         point = '0 1 0'
     []
+    [disp_abs]
+        type = ParsedPostprocessor
+        pp_names = 'disp'
+        expression = 'abs(disp)'
+    []
     [force]
         type = NodalSum
         variable = saved_y
@@ -237,7 +242,18 @@
         pp_names = 'contact_pressure_integral contact_active_area'
         expression = 'contact_pressure_integral / contact_active_area'
     []
- 
+    [plot_force_disp]
+        type = PlotPostprocessor
+        x_variable = disp_abs
+        y_variable = force
+        plot_title = 'Force vs Displacement'
+        output_file = 'force_disp.png'
+        x_label = 'Displacement ($\\mu m$)'
+        y_label = 'Force (N)'
+        real_time_plot = true
+        plot_frequency = 1
+        style = 'b-'
+    []
 []
 
 [Outputs]
