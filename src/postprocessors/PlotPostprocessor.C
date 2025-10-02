@@ -11,20 +11,15 @@ PlotPostprocessor::validParams()
 
   params.addClassDescription("Postprocessor that generates real-time plots of specified variables");
 
-  params.addRequiredParam<std::vector<PostprocessorName>>("pp_names",
-                                                          "List of postprocessor names to plot");
-
   params.addRequiredParam<PostprocessorName>("x_variable",
-                                             "Postprocessor name for x-axis (typically time)");
-
+                                             "Postprocessor name for x-axis");
+  params.addRequiredParam<PostprocessorName>("y_variable",
+                                             "Postprocessor name for y-axis");
   params.addParam<std::string>("x_label", "", "Label for the x-axis");
   params.addParam<std::string>("y_label", "", "Label for the y-axis");
-  params.addParam<std::string>("plot_title", "Convergence Analysis", "Title for the plot");
-
+  params.addParam<std::string>("plot_title", "", "Title for the plot");
   params.addParam<std::string>("output_file", "ailuro_plot.png", "Output image file name");
-
   params.addParam<bool>("real_time_plot", false, "Generate plot at each time step");
-
   params.addParam<unsigned int>("plot_frequency", 1, "Plot every N time steps");
 
   return params;
@@ -32,10 +27,14 @@ PlotPostprocessor::validParams()
 
 PlotPostprocessor::PlotPostprocessor(const InputParameters & parameters)
   : GeneralPostprocessor(parameters),
-    _pp_names(getParam<std::vector<PostprocessorName>>("pp_names")),
     _x_variable(getParam<PostprocessorName>("x_variable")),
-    _x_label(getParam<std::string>("x_label")),
-    _y_label(getParam<std::string>("y_label")),
+    _y_variable(getParam<PostprocessorName>("y_variable")),
+    _x_label(getParam<std::string>("x_label").empty()
+                 ? _x_variable
+                 : getParam<std::string>("x_label")),
+    _y_label(getParam<std::string>("y_label").empty()
+                 ? _y_variable
+                 : getParam<std::string>("y_label")),
     _plot_title(getParam<std::string>("plot_title")),
     _output_file(getParam<std::string>("output_file")),
     _real_time_plot(getParam<bool>("real_time_plot")),
@@ -91,7 +90,7 @@ PlotPostprocessor::execute()
   _time_step_counter++;
 
   Real x_val = getPostprocessorValueByName(_x_variable);
-  Real y_val = getPostprocessorValueByName(_pp_names[0]);
+  Real y_val = getPostprocessorValueByName(_y_variable);
   _x_data.push_back(x_val);
   _y_data.push_back(y_val);
 

@@ -17,9 +17,8 @@ public:
   virtual void finalize() override;
 
 protected:
-  std::vector<PostprocessorName> _pp_names;
-
   PostprocessorName _x_variable;
+  PostprocessorName _y_variable;
 
   std::string _x_label;
 
