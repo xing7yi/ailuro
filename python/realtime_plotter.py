@@ -13,12 +13,12 @@ import matplotlib.pyplot as plt
 def main():
     parser = argparse.ArgumentParser(description='Ailuro real-time plotting tool')
     parser.add_argument('--output', required=True, help='Output image file path')
-    parser.add_argument('--xlabel', default='X', help='X-axis label')
-    parser.add_argument('--ylabel', default='Y', help='Y-axis label')
-    parser.add_argument('--title', default='Plot', help='Plot title')
+    parser.add_argument('--xlabel', default='', help='X-axis label')
+    parser.add_argument('--ylabel', default='', help='Y-axis label')
+    parser.add_argument('--title', default='', help='Plot title')
     parser.add_argument('--figsize', default='5,4', help='Figure size (width,height)')
     parser.add_argument('--dpi', type=int, default=300, help='Output DPI')
-    parser.add_argument('--style', default='bo-', help='Plot style')
+    parser.add_argument('--style', default='ro-', help='Plot style')
     parser.add_argument('--markersize', type=int, default=5, help='Marker size')
     
     # only parse command line arguments, ignore stdin data stream
@@ -41,7 +41,6 @@ def main():
     x_data = []
     y_data = []
     
-    sys.stderr.write(f'Ailuro plotter initialized: {args.output}\n')
     sys.stderr.flush()
     
     # Read data from stdin
