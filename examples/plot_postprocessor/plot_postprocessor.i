@@ -7,8 +7,8 @@
     [mesh]
         type = GeneratedMeshGenerator
         dim = 2
-        nx = 10
-        ny = 10
+        nx = 100
+        ny = 100
         xmax = 1
         ymax = 1
     []
@@ -81,16 +81,22 @@
         variable = saved_y
         boundary = 'bottom'
     []
+    [disp_abs]
+        type = ParsedPostprocessor
+        function = 'abs(disp)'
+        pp_names = 'disp'
+    []
     [plot_force_disp]
         type = PlotPostprocessor
-        pp_names = 'force'
-        x_variable = disp
+        x_variable = disp_abs
+        y_variable = force
         plot_title = 'Force vs Displacement'
         output_file = 'force_disp.png'
         x_label = 'Displacement ($\\mu m$)'
         y_label = 'Force (N)'
         real_time_plot = true
-        plot_frequency = 2
+        plot_frequency = 1
+        style = 'b-'
     []
 []
 
