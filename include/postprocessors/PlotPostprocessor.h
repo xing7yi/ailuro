@@ -26,6 +26,8 @@ protected:
 
   std::string _plot_title;
 
+  std::string _style;
+
   std::string _output_file;
 
   bool _real_time_plot;

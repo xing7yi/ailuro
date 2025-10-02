@@ -11,13 +11,12 @@ PlotPostprocessor::validParams()
 
   params.addClassDescription("Postprocessor that generates real-time plots of specified variables");
 
-  params.addRequiredParam<PostprocessorName>("x_variable",
-                                             "Postprocessor name for x-axis");
-  params.addRequiredParam<PostprocessorName>("y_variable",
-                                             "Postprocessor name for y-axis");
+  params.addRequiredParam<PostprocessorName>("x_variable", "Postprocessor name for x-axis");
+  params.addRequiredParam<PostprocessorName>("y_variable", "Postprocessor name for y-axis");
   params.addParam<std::string>("x_label", "", "Label for the x-axis");
   params.addParam<std::string>("y_label", "", "Label for the y-axis");
   params.addParam<std::string>("plot_title", "", "Title for the plot");
+  params.addParam<std::string>("style", "", "Plot style (e.g., line, scatter)");
   params.addParam<std::string>("output_file", "ailuro_plot.png", "Output image file name");
   params.addParam<bool>("real_time_plot", false, "Generate plot at each time step");
   params.addParam<unsigned int>("plot_frequency", 1, "Plot every N time steps");
@@ -29,13 +28,12 @@ PlotPostprocessor::PlotPostprocessor(const InputParameters & parameters)
   : GeneralPostprocessor(parameters),
     _x_variable(getParam<PostprocessorName>("x_variable")),
     _y_variable(getParam<PostprocessorName>("y_variable")),
-    _x_label(getParam<std::string>("x_label").empty()
-                 ? _x_variable
-                 : getParam<std::string>("x_label")),
-    _y_label(getParam<std::string>("y_label").empty()
-                 ? _y_variable
-                 : getParam<std::string>("y_label")),
+    _x_label(getParam<std::string>("x_label").empty() ? _x_variable
+                                                      : getParam<std::string>("x_label")),
+    _y_label(getParam<std::string>("y_label").empty() ? _y_variable
+                                                      : getParam<std::string>("y_label")),
     _plot_title(getParam<std::string>("plot_title")),
+    _style(getParam<std::string>("style")),
     _output_file(getParam<std::string>("output_file")),
     _real_time_plot(getParam<bool>("real_time_plot")),
     _plot_frequency(getParam<unsigned int>("plot_frequency")),
@@ -63,7 +61,7 @@ PlotPostprocessor::~PlotPostprocessor()
 {
   if (processor_id() != 0)
     return;
-    
+
   if (_real_time_plot)
   {
     // real-time mode: close persistent Python process
@@ -71,10 +69,10 @@ PlotPostprocessor::~PlotPostprocessor()
   }
   else if (!_x_data.empty())
   {
-    // batch mode: start Python process, send data once, then close 
-    _console << "PlotPostprocessor: Generating final plot with " << _x_data.size() 
+    // batch mode: start Python process, send data once, then close
+    _console << "PlotPostprocessor: Generating final plot with " << _x_data.size()
              << " data points..." << std::endl;
-    
+
     initializePythonProcess();
     if (_python_initialized)
     {
@@ -103,7 +101,6 @@ PlotPostprocessor::execute()
       updatePlotData(_x_data, _y_data);
     }
   }
-
 }
 
 PostprocessorValue
@@ -152,13 +149,17 @@ PlotPostprocessor::initializePythonProcess()
 
   _console << "  Using plotter: " << plotter_script << std::endl;
 
-
   std::stringstream cmd_builder;
   cmd_builder << "python3 -u " << plotter_script;
   cmd_builder << " --output \"" << _output_file << "\"";
-  cmd_builder << " --xlabel \"" << _x_label << "\"";
-  cmd_builder << " --ylabel \"" << _y_label << "\"";
-  cmd_builder << " --title \"" << _plot_title << "\"";
+  if (_x_label != "")
+    cmd_builder << " --xlabel \"" << _x_label << "\"";
+  if (_y_label != "")
+    cmd_builder << " --ylabel \"" << _y_label << "\"";
+  if (_plot_title != "")
+    cmd_builder << " --title \"" << _plot_title << "\"";
+  if (_style != "")
+    cmd_builder << " --style \"" << _style << "\"";
   cmd_builder << " 2>&1";
 
   std::string cmd = cmd_builder.str();
@@ -172,8 +173,6 @@ PlotPostprocessor::initializePythonProcess()
   }
 
   _python_initialized = true;
-  _console << "PlotPostprocessor: Plotting pipeline ready. Updates will be sent at frequency="
-           << _plot_frequency << std::endl;
 }
 
 void
@@ -197,7 +196,8 @@ PlotPostprocessor::closePythonProcess()
 }
 
 void
-PlotPostprocessor::updatePlotData(const std::vector<Real> & x_data, const std::vector<Real> & y_data)
+PlotPostprocessor::updatePlotData(const std::vector<Real> & x_data,
+                                  const std::vector<Real> & y_data)
 {
   if (!_python_initialized || _python_pipe == nullptr)
   {
@@ -219,12 +219,11 @@ PlotPostprocessor::updatePlotData(const std::vector<Real> & x_data, const std::v
   }
   // Send END marker
   fprintf(_python_pipe, "END\n");
-  
+
   int flush_result = fflush(_python_pipe);
   if (flush_result != 0)
   {
     _console << "ERROR: Failed to flush Python pipe" << std::endl;
     return;
   }
-
 }
