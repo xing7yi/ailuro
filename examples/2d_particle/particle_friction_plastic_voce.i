@@ -170,7 +170,7 @@
     line_search = 'none'
 
     l_max_its = 60
-    nl_max_its = 50
+    nl_max_its = 20
     dt = 0.01
     dtmin = 0.00001
     end_time = 1.0
@@ -210,7 +210,7 @@
         variable = saved_y
         boundary = Specimen_Bottom_Edge
     []
-    # 平均von Mises应力
+
     [spec_avg_vonmises]
         type = ElementAverageValue
         variable = vonmises_stress
