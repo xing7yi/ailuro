@@ -1,4 +1,5 @@
 #include "PlotPostprocessor.h"
+#include "ExecutablePath.h"
 #include <fstream>
 #include <sstream>
 
@@ -17,7 +18,8 @@ PlotPostprocessor::validParams()
   params.addParam<std::string>("y_label", "", "Label for the y-axis");
   params.addParam<std::string>("plot_title", "", "Title for the plot");
   params.addParam<std::string>("style", "", "Plot style (e.g., line, scatter)");
-  params.addParam<std::string>("output_file", "", "Output image file name (default: <file_base>_<pp_name>.png)");
+  params.addParam<std::string>(
+      "output_file", "", "Output image file name (default: <file_base>_<pp_name>.png)");
   params.addParam<bool>("real_time_plot", false, "Generate plot at each time step");
   params.addParam<unsigned int>("plot_frequency", 1, "Plot every N time steps");
 
@@ -33,7 +35,7 @@ PlotPostprocessor::PlotPostprocessor(const InputParameters & parameters)
     _y_label(getParam<std::string>("y_label").empty() ? _y_variable
                                                       : getParam<std::string>("y_label")),
     _plot_title(getParam<std::string>("plot_title")),
-    _output_file(""),  // 临时值，后面设置
+    _output_file(""), // 临时值，后面设置
     _real_time_plot(getParam<bool>("real_time_plot")),
     _plot_frequency(getParam<unsigned int>("plot_frequency")),
     _time_step_counter(0),
@@ -42,13 +44,13 @@ PlotPostprocessor::PlotPostprocessor(const InputParameters & parameters)
 {
   // 自动生成输出文件名（类似 CSV/Exodus 的逻辑）
   std::string user_output_file = getParam<std::string>("output_file");
-  
+
   if (user_output_file.empty())
   {
     // 没有指定：使用 <file_base>_<postprocessor_name>.png
     // 获取基础文件名（会自动包含 MultiApp 前缀）
     std::string file_base = _app.getOutputFileBase();
-    
+
     if (file_base.empty())
     {
       // 如果还是空（不应该发生），使用 postprocessor 名称
@@ -65,7 +67,7 @@ PlotPostprocessor::PlotPostprocessor(const InputParameters & parameters)
     // 用户指定了文件名：直接使用
     _output_file = user_output_file;
   }
-  
+
   // 输出信息
   if (processor_id() == 0)
   {
@@ -147,18 +149,22 @@ PlotPostprocessor::initializePythonProcess()
 
   _console << "PlotPostprocessor: Initializing persistent Python plotting process..." << std::endl;
 
-  // Search for Ailuro's standalone Python plotting tool (similar to MOOSE)
-  std::vector<std::string> search_paths = {
-      "../python/realtime_plotter.py",    // from build directory
-      "../../python/realtime_plotter.py", // from examples directory
-      "python/realtime_plotter.py"        // from ailuro root directory
-  };
+  // Search for Ailuro's standalone Python plotting tool
+  std::vector<std::string> search_paths;
 
-  // If the AILURO_DIR environment variable is set
-  const char * ailuro_dir = std::getenv("AILURO_DIR");
-  if (ailuro_dir)
-    search_paths.insert(search_paths.begin(),
-                        std::string(ailuro_dir) + "/python/realtime_plotter.py");
+  // Use getExecutablePath() to get full path, not just the name
+  std::string exe_path = Moose::getExecutablePath();
+
+  if (!exe_path.empty())
+  {
+    // obtain directory of the executable
+    size_t last_slash = exe_path.find_last_of("/\\");
+    if (last_slash != std::string::npos)
+    {
+      std::string exe_dir = exe_path.substr(0, last_slash);
+      search_paths.push_back(exe_dir + "/python/realtime_plotter.py");
+    }
+  }
 
   std::string plotter_script;
   for (const auto & path : search_paths)
