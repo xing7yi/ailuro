@@ -35,44 +35,27 @@ PlotPostprocessor::PlotPostprocessor(const InputParameters & parameters)
     _y_label(getParam<std::string>("y_label").empty() ? _y_variable
                                                       : getParam<std::string>("y_label")),
     _plot_title(getParam<std::string>("plot_title")),
-    _output_file(""), // 临时值，后面设置
+    _style(getParam<std::string>("style")),
+    _output_file(""),
     _real_time_plot(getParam<bool>("real_time_plot")),
     _plot_frequency(getParam<unsigned int>("plot_frequency")),
     _time_step_counter(0),
     _python_pipe(nullptr),
     _python_initialized(false)
 {
-  // 自动生成输出文件名（类似 CSV/Exodus 的逻辑）
   std::string user_output_file = getParam<std::string>("output_file");
 
+  // generate output file name if not provided by user
   if (user_output_file.empty())
   {
-    // 没有指定：使用 <file_base>_<postprocessor_name>.png
-    // 获取基础文件名（会自动包含 MultiApp 前缀）
     std::string file_base = _app.getOutputFileBase();
-
-    if (file_base.empty())
-    {
-      // 如果还是空（不应该发生），使用 postprocessor 名称
-      _output_file = name() + ".png";
-    }
-    else
-    {
-      // 正常情况：file_base + "_" + pp_name + ".png"
-      _output_file = file_base + "_" + name() + ".png";
-    }
+    _output_file = file_base + "_" + name() + ".png";
   }
   else
   {
-    // 用户指定了文件名：直接使用
     _output_file = user_output_file;
   }
 
-  // 输出信息
-  if (processor_id() == 0)
-  {
-    _console << "PlotPostprocessor '" << name() << "': Output file = " << _output_file << std::endl;
-  }
 }
 
 void
