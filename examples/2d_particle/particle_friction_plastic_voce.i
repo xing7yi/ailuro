@@ -247,7 +247,6 @@
         x_variable = disp_abs
         y_variable = force
         plot_title = 'Force vs Displacement'
-        output_file = 'force_disp.png'
         x_label = 'Displacement ($\\mu m$)'
         y_label = 'Force (N)'
         real_time_plot = true
@@ -256,12 +255,25 @@
     []
 []
 
+[Times]
+    [csv_times]
+        type = TimeIntervalTimes
+        time_interval = 0.01
+        always_include_end_time = true
+    []
+[]
+
 [Outputs]
     # file_base = particle_friction_plastic_voce
-    csv = true
-    [out]
-        type = Exodus
-        elemental_as_nodal = true
-        time_step_interval = 1
+    [csv]
+        type = CSV
+        sync_only = true
+        sync_times_object = csv_times
+        execute_reporters_on = 'NONE'
     []
+    # [out]
+    #     type = Exodus
+    #     elemental_as_nodal = true
+    #     time_step_interval = 1
+    # []
 []
