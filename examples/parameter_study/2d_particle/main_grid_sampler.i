@@ -1,0 +1,104 @@
+# [ParameterStudy]
+#   input = particle_friction_plastic_voce.i
+#   parameters = 'Materials/stress_specimen/yield_stress Materials/stress_specimen/hardening_constant'
+#   quantities_of_interest = 'force/value contact_pressure_avg/value'
+
+#   sampling_type = lhs
+#   num_samples = 8
+#   distributions = 'uniform uniform'
+#   uniform_lower_bound = '50 0'
+#   uniform_upper_bound = '1500 2000'
+# []
+
+
+
+[StochasticTools]
+[]
+
+[Distributions]
+  [ys]
+    type = Uniform
+    lower_bound = 0
+    upper_bound = 1500
+  []
+  [tm]
+    type = Uniform
+    lower_bound = 0
+    upper_bound = 2000
+  []
+[]
+
+[Samplers]
+  [hypercube]
+    type = LatinHypercube
+    num_rows = 8
+    distributions = 'ys tm'
+  []
+  [grid]
+    type = CartesianProduct
+    # formatted as: min step num_steps
+    linear_space_items = '50 500 3
+                          0 500 4'
+  []
+[]
+
+[MultiApps]
+  [runner]
+    type = SamplerFullSolveMultiApp
+    sampler = grid
+    input_files = 'particle_friction_plastic_voce.i'
+    mode = batch-reset
+    ignore_solve_not_converge = true
+  []
+[]
+
+[Transfers]
+  [parameters]
+    type = SamplerParameterTransfer
+    to_multi_app = runner
+    sampler = grid
+    parameters = 'Materials/stress_specimen/yield_stress Materials/stress_specimen/hardening_constant'
+  []
+  [results]
+    type = SamplerReporterTransfer
+    from_multi_app = runner
+    sampler = grid
+    stochastic_reporter = results
+    from_reporter = 'force/value contact_pressure_avg/value'
+  []
+[]
+
+[VectorPostprocessors]
+  [sample_data]
+    type = SamplerData
+    sampler = grid
+    execute_on = 'INITIAL'
+  []
+[]
+
+[Reporters]
+  [results]
+    type = StochasticReporter
+    parallel_type = ROOT  # 将所有 rank 的数据汇总到 rank 0
+  []
+  [stats]
+    type = StatisticsReporter
+    reporters = 'results/results:force:value results/results:contact_pressure_avg:value'
+    compute = 'mean stddev'
+    ci_method = 'percentile'
+    ci_levels = '0.05 0.95'
+  []
+[]
+
+[Outputs]
+  [out]
+    type = JSON
+    execute_on = 'FINAL'  # JSON 只在最后输出结果
+    # distributed = false  # 只在 rank 0 输出，生成单个文件
+  []
+  [samples]
+    type = CSV
+    execute_on = 'INITIAL'  # CSV 只在初始化时输出采样数据
+    execute_reporters_on = 'NONE'  # 不输出 Reporter 数据，只输出 VectorPostprocessor
+  []
+[]
