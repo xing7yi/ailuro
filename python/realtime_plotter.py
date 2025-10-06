@@ -19,7 +19,7 @@ def main():
     parser.add_argument('--figsize', default='5,4', help='Figure size (width,height)')
     parser.add_argument('--dpi', type=int, default=300, help='Output DPI')
     parser.add_argument('--style', default='ro-', help='Plot style')
-    parser.add_argument('--markersize', type=int, default=5, help='Marker size')
+    parser.add_argument('--markersize', type=float, default=3, help='Marker size')
     
     # only parse command line arguments, ignore stdin data stream
     args = parser.parse_args(sys.argv[1:])
