@@ -17,7 +17,7 @@
 [Mesh]
     [simple_mesh]
         type = FileMeshGenerator
-        file = particle_refine_lvl_1.msh
+        file = particle_refine_lvl_2.msh
     []
     uniform_refine = 0
     allow_renumbering = false
@@ -137,7 +137,7 @@
         type = ADComputeIsotropicElasticityTensor
         block = 'Indenter_Body'
         youngs_modulus = 1e8
-        poissons_ratio = 0.2
+        poissons_ratio = 0.25
     []
     [stress_indenter]
         type = ADComputeFiniteStrainElasticStress
@@ -149,7 +149,7 @@
         type = ADComputeIsotropicElasticityTensor
         block = 'Specimen_Body'
         youngs_modulus = 1e5
-        poissons_ratio = 0.25
+        poissons_ratio = 0.3
     []
     [stress_specimen]
         # type = ComputeFiniteStrainElasticStress
@@ -182,7 +182,7 @@
     l_max_its = 60
     nl_max_its = 20
     dt = 0.01
-    dtmin = 0.00001
+    dtmin = 1e-5
     end_time = 1.0
     nl_rel_tol = 1e-8
     nl_abs_tol = 1e-6
@@ -265,21 +265,16 @@
     []
 []
 
-[Times]
-    [csv_times]
-        type = TimeIntervalTimes
-        time_interval = 0.01
-        always_include_end_time = true
-    []
-[]
+# [Times]
+#     [csv_times]
+#         type = TimeIntervalTimes
+#         time_interval = 0.01
+#         always_include_end_time = true
+#     []
+# []
 
 [Outputs]
-    [csv]
-        type = CSV
-        sync_only = true
-        sync_times_object = csv_times
-        execute_reporters_on = 'NONE'
-    []
+    csv = true
     # [out]
     #     type = Exodus
     #     elemental_as_nodal = true

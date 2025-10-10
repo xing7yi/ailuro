@@ -4,8 +4,8 @@
 [Distributions]
   [ys]
     type = Uniform
-    lower_bound = 10
-    upper_bound = 500
+    lower_bound = 50
+    upper_bound = 1500
   []
   [tm]
     type = Uniform
@@ -17,7 +17,7 @@
 [Samplers]
   [hypercube]
     type = LatinHypercube
-    num_rows = 50
+    num_rows = 250
     distributions = 'ys tm'
   []
   [grid]
