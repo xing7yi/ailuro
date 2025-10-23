@@ -17,7 +17,7 @@
 [Mesh]
     [simple_mesh]
         type = FileMeshGenerator
-        file = particle_refine_lvl_2.msh
+        file = ../mesh_files/particle_refine_lvl_2.msh
     []
     uniform_refine = 0
     allow_renumbering = false
