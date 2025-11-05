@@ -17,7 +17,10 @@ IsotropicVoceLawHardeningStressUpdateTempl<is_ad>::validParams()
 
   // Voce law hardening specific parameters
   params.addParam<Real>("q", 0.0, "Saturation value for isotropic hardening (Q in Voce model)");
-  params.addParam<Real>("b", 0.0, "Rate constant for isotropic hardening (b in Voce model)"); 
+  params.addParam<Real>("b", 0.0,
+                        "Rate constant for isotropic hardening (b in Voce model). "
+                        "If not specified (or set to 0) and Q is non-zero, defaults to (E-H)/Q "
+                        "where E is Young's modulus and H is hardening constant");
   params.declareControllable("q b");
   return params;
 }
@@ -28,8 +31,34 @@ IsotropicVoceLawHardeningStressUpdateTempl<is_ad>::IsotropicVoceLawHardeningStre
     const InputParameters & parameters)
   : IsotropicLinearHardeningStressUpdateTempl<is_ad>(parameters),
     _q(this->template getParam<Real>("q")),
-    _b(this->template getParam<Real>("b"))
+    _b(this->template getParam<Real>("b")),
+    _b_value(_b),  // Initialize working copy with input value
+    _youngs_modulus(0.0)
 {
+}
+
+template <bool is_ad>
+void
+IsotropicVoceLawHardeningStressUpdateTempl<is_ad>::computeStressInitialize(
+    const GenericReal<is_ad> & effective_trial_stress,
+    const GenericRankFourTensor<is_ad> & elasticity_tensor)
+{
+  // Call parent class implementation first
+  IsotropicLinearHardeningStressUpdateTempl<is_ad>::computeStressInitialize(
+      effective_trial_stress, elasticity_tensor);
+
+  // Compute Young's modulus from elasticity tensor
+  // (similar to IsotropicPowerLawHardeningStressUpdate)
+  const GenericReal<is_ad> lambda = getIsotropicLameLambda(elasticity_tensor);
+  const GenericReal<is_ad> shear_modulus = _three_shear_modulus / 3.0;
+  _youngs_modulus = shear_modulus * (3.0 * lambda + 2.0 * shear_modulus) / (lambda + shear_modulus);
+
+  // If b not user-specified (or is zero/default) but Q > 0, compute b = (E - H) / Q
+  if ((_b_value <= 0.0 || !this->isParamSetByUser("b")) && _q > 0.0)
+  {
+    // Extract raw value from GenericReal (handles both AD and non-AD cases)
+    _b_value = MetaPhysicL::raw_value(_youngs_modulus - this->_hardening_slope) / _q;
+  }
 }
 
 template <bool is_ad>
@@ -44,11 +73,26 @@ IsotropicVoceLawHardeningStressUpdateTempl<is_ad>::computeHardeningValue(
       this->_effective_inelastic_strain_old[_qp] + scalar;
   
   // Update Voce hardening variable for output/monitoring
-  _hardening_variable[_qp] = _q * (1.0 - std::exp(-_b * total_plastic_strain));
+  // Use _b_value (working copy) instead of _b (const reference)
+  _hardening_variable[_qp] = _q * (1.0 - std::exp(-_b_value * total_plastic_strain));
   
   // Return EXACT hardening value: H = R*epsilon_total + Q*(1 - exp(-b*epsilon_total))
   // This differs from MOOSE official which uses first-order approximation
   return (_hardening_slope * total_plastic_strain + _hardening_variable[_qp]);
+}
+
+template <bool is_ad>
+GenericReal<is_ad>
+IsotropicVoceLawHardeningStressUpdateTempl<is_ad>::getIsotropicLameLambda(
+    const GenericRankFourTensor<is_ad> & elasticity_tensor)
+{
+  const GenericReal<is_ad> lame_lambda = elasticity_tensor(0, 0, 1, 1);
+
+  if (this->_mesh.dimension() == 3 &&
+      MetaPhysicL::raw_value(lame_lambda) != MetaPhysicL::raw_value(elasticity_tensor(1, 1, 2, 2)))
+    mooseError(
+        "Check to ensure that your Elasticity Tensor is truly Isotropic: different lambda values");
+  return lame_lambda;
 }
 
 template class IsotropicVoceLawHardeningStressUpdateTempl<false>;
