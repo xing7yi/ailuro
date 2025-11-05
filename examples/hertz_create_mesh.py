@@ -290,7 +290,7 @@ def create_hertz_model_refine(file_name:str,refine_level:int=1):
     # 定义一个长方形
     width = 1.5  # 长方形的宽度
     height = 0.1  # 长方形的高度
-    y_offset = 1*height  # 长方形的y偏移量
+    y_offset = 1e-4*height  # 长方形的y偏移量
     surf_rectangle = f.addRectangle(0, radius + y_offset, 0, width, height)  # 定义一个长方形
 
     p_cut_8 = f.addPoint(0.3*radius, radius + 1.1*y_offset + height, 0)
@@ -388,8 +388,8 @@ def create_hertz_model_structural_mesh(file_name:str,refine_level:int=1):
     #  *                      *
     #  *                       *
     #  *   *   *   3   *   *   *
-    
-    radius = 1.0
+    len_factor = 1e-3
+    radius = 27.485/2 * len_factor
 
 
     p_center = f.addPoint(0, 0, 0)    
@@ -427,8 +427,8 @@ def create_hertz_model_structural_mesh(file_name:str,refine_level:int=1):
     f.fragment([(2, surf_circle)], line_cuts_circle)  # 将圆切割
 
     # 定义一个长方形
-    width = 1.5  # 长方形的宽度
-    height = 0.5  # 长方形的高度
+    width = 1.5 * radius   # 长方形的宽度
+    height = 0.5 * radius  # 长方形的高度
     y_offset = 0*height  # 长方形的y偏移量
     surf_rectangle = f.addRectangle(0, radius + y_offset, 0, width, height)  # 定义一个长方形
 
@@ -650,7 +650,8 @@ if __name__ == "__main__":
     # 调用函数创建网格
     # create_mesh_with_gmsh_occ("contact2d.msh")
     # create_hertz_model("hertz_contact.msh")
-    # create_hertz_model_refine("hertz_contact_refine2.msh",refine_level=2)
+    # create_hertz_model_refine("hertz_contact_refine1.msh",refine_level=1)
     # create_hertz_model_half_space("hertz_contact_half_space.msh",refine_level=1)
     # create_hertz_model_contact_area_refine("hertz_contact_refine.msh")
-    create_hertz_model_structural_mesh("hertz_contact_structural_ref_1.msh",1)    #bottom edge div num : 30*1
+    # create_hertz_model_structural_mesh("hertz_contact_structural_ref_2.msh",2)    #bottom edge div num : 30*1
+    create_hertz_model_structural_mesh("316L_2d_particle_contact_structural_ref_2.msh",2)    #bottom edge div num : 30*1
