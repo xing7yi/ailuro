@@ -12,7 +12,7 @@ import pandas as pd
 def rastrigin_3d(x):
     A = 10
     x = np.asarray(x)
-    return A*3 + np.sum(x**2 - A * np.cos(2*np.pi*x))
+    return A*3 + np.sum(x**2 - A * np.cos(2*np.pi*x), axis=-1)
 
 class MOOSEObjectiveFunction:
     """Objective function wrapper for MOOSE simulations."""
@@ -37,7 +37,9 @@ class MOOSEObjectiveFunction:
         self.param_paths = config['parameters']['paths']
         self.n_params = len(self.param_names)
         self.eval_count = 0
-
+        self.success_count = 0
+        self.fail_count = 0
+        self.eval_history = []
 
         # Combine work_dir and output_dir
         self.output_dir = self.work_dir / self.output_dir
@@ -77,6 +79,7 @@ class MOOSEObjectiveFunction:
         cmd.append(f"{self.filebase_param}={file_base}")
         csv_file = self.work_dir / f"{file_base}.csv"
 
+        start_time = time.time()
         try:
             result = subprocess.run(
                 cmd,
@@ -88,14 +91,32 @@ class MOOSEObjectiveFunction:
             if result.returncode == 0:
                 print(f"✓ MOOSE simulation completed for parameters: {parameters}")
                 objective = self._calculate_objective(csv_file)
+                self.success_count += 1
+                status = "✓"
 
             else:
                 print(f"✗ MOOSE simulation failed for parameters: {parameters}")
                 print(f"result.stderr:\n{result.stderr}")
                 objective = 1e10
-        except Exception as e:
-            print(f"Error running MOOSE simulation: {e}")
-            return 1e10
+                self.fail_count += 1
+                status = "✗"
+        except subprocess.TimeoutExpired:
+            elapsed = self.timeout
+            print(f"✗ MOOSE simulation timed out after {self.timeout} seconds for parameters: {parameters}")
+            objective = 1e10
+            self.fail_count += 1
+            status = "T"
+
+        elapsed = time.time() - start_time
+        # 记录历史
+        self.eval_history.append({
+            'eval_id': self.eval_count,
+            'parameters': parameters.tolist(),
+            'objective': objective,
+            'elapsed_time': elapsed,
+            'status': status
+        })
+
         return objective
 
     def _calculate_objective(self, csv_file):
@@ -227,6 +248,24 @@ class MOOSEObjectiveFunction:
             print(f"   绘图失败: {e}")
 
         return rmse
+    
+    def save_history(self, filename="pso_evaluation_history.csv"):
+        """Save evaluation history to a CSV file."""
+        df_data = []
+        for record in self.eval_history:
+            row = {'eval_id': record['eval_id']}
+            for i, (name, val) in enumerate(zip(self.param_names, record['parameters'])):
+                row[name] = val
+            row['objective'] = record['objective']
+            row['elapsed_time'] = record['elapsed_time']
+            row['status'] = record['status']
+            df_data.append(row)
+
+        df = pd.DataFrame(df_data)
+        output_path = self.work_dir / filename
+        df.to_csv(output_path, index=False)
+        print(f"Saved evaluation history to {filename}")
+        return df
 
 def run_pso_optimization(config: dict):
     """
@@ -236,7 +275,6 @@ def run_pso_optimization(config: dict):
         config (dict): Configuration dictionary
     """
     from pyswarms.single.global_best import GlobalBestPSO
-
 
     print("="*80)
     print(f"Particle Swarm Optimization (MOOSE)")
@@ -289,7 +327,9 @@ def run_pso_optimization(config: dict):
     start_time = time.time()
     cost, pos = optimizer.optimize(
         objective_func,
-        iters=max_iters
+        iters=max_iters,
+        ftol=1e-6,
+        ftol_iter=5
     )
 
     elapsed_time = time.time() - start_time
@@ -300,14 +340,30 @@ def run_pso_optimization(config: dict):
     print(f"Best position (parameters):")
     for i, name in enumerate(param_config['names']):
         print(f"  {name} = {pos[i]:.6f}")
-    print(f"\nStatistics:")
-    # print(f"  Total iterations: {optimizer.iters_completed}")
-    # print(f"  Total function evaluations: {optimizer.func_eval_count}")
-    # print(f"  Failures: {optimizer.failures}")
-    # print(f"  Elapsed time: {elapsed_time:.2f} seconds")
 
     print(f"Optimization completed in {elapsed_time:.2f} seconds.")
 
+    
+    # 保存历史
+    df_history = objective_func.save_history()
+    
+    # 保存最优参数
+    result_file = objective_func.work_dir / "pso_optimal_parameters.yaml"
+    result = {
+        'optimal_parameters': {name: float(val) for name, val in zip(param_config['names'], pos)},
+        'optimal_cost': float(cost),
+        'statistics': {
+            'total_evaluations': objective_func.eval_count,
+            'successful': objective_func.success_count,
+            'failed': objective_func.fail_count,
+            'total_time_minutes': elapsed_time/60,
+            'average_time_seconds': elapsed_time/objective_func.eval_count
+        }
+    }
+    
+    with open(result_file, 'w') as f:
+        yaml.dump(result, f, default_flow_style=False)
+    print(f"\n结果已保存: {result_file}")
 
     fig, ax = plt.subplots(figsize=(4, 3.6))
     ax.plot(optimizer.cost_history,color='blue')
@@ -330,6 +386,9 @@ def run_pso_optimization(config: dict):
     # ax.set_title("Final Particle Positions")
     # ax.legend()
     # plt.show()
+    
+    return pos, cost
+
 
 
 def main():
@@ -352,6 +411,7 @@ def main():
 
     # Run Optimization
     run_pso_optimization(config)
+
 
 if __name__ == "__main__":
     main()
