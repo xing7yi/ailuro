@@ -8,6 +8,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import subprocess
 import shutil
 import pandas as pd
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 def rastrigin_3d(x):
     A = 10
@@ -40,6 +42,13 @@ class MOOSEObjectiveFunction:
         self.success_count = 0
         self.fail_count = 0
         self.eval_history = []
+        
+        # 并行计算配置
+        self.use_parallel = config.get('use_parallel', True)
+        self.max_workers = config.get('max_workers', multiprocessing.cpu_count() // 2)
+        print(f"  并行计算: {'启用' if self.use_parallel else '禁用'}")
+        if self.use_parallel:
+            print(f"  最大并行数: {self.max_workers} (系统CPU核心数: {multiprocessing.cpu_count()})")
 
         # Combine work_dir and output_dir
         self.output_dir = self.work_dir / self.output_dir
@@ -53,19 +62,58 @@ class MOOSEObjectiveFunction:
         n_particles = particle_positions.shape[0]
         costs = np.zeros(n_particles)
         
-        # Evaluate each particle
-        # parallelization can be added here if needed
-        for i in range(n_particles):
-            costs[i] = self.evaluate_single(particle_positions[i])
+        if self.use_parallel and n_particles > 1:
+            # 并行评估
+            print(f"\n并行评估 {n_particles} 个粒子 (使用 {min(self.max_workers, n_particles)} 个进程)...")
+            
+            # 预先分配评估ID（避免并行时ID冲突）
+            eval_ids = list(range(self.eval_count + 1, self.eval_count + n_particles + 1))
+            self.eval_count += n_particles
+            
+            with ProcessPoolExecutor(max_workers=min(self.max_workers, n_particles)) as executor:
+                # 提交所有任务，传递预分配的eval_id
+                future_to_index = {
+                    executor.submit(self.evaluate_single, particle_positions[i], eval_ids[i]): i
+                    for i in range(n_particles)
+                }
+                
+                # 收集结果和历史记录
+                completed = 0
+                for future in as_completed(future_to_index):
+                    i = future_to_index[future]
+                    try:
+                        cost, history_record = future.result()
+                        costs[i] = cost
+                        self.eval_history.append(history_record)
+                        completed += 1
+                        print(f"  进度: {completed}/{n_particles} 完成")
+                    except Exception as e:
+                        print(f"  粒子 {i} 评估失败: {e}")
+                        costs[i] = 1e10
+                        # 为失败的评估也添加历史记录
+                        self.eval_history.append({
+                            'eval_id': eval_ids[i],
+                            'parameters': particle_positions[i].tolist(),
+                            'objective': 1e10,
+                            'elapsed_time': 0,
+                            'status': 'E'  # Error
+                        })
+                        completed += 1
+        else:
+            # 串行评估
+            for i in range(n_particles):
+                self.eval_count += 1
+                cost, history_record = self.evaluate_single(particle_positions[i], self.eval_count)
+                costs[i] = cost
+                self.eval_history.append(history_record)
             
         return costs
 
-    def evaluate_single(self, parameters):
+    def evaluate_single(self, parameters, eval_id):
         # Here you would integrate with the MOOSE simulation
         # For now, we'll use a dummy objective function
 
-        self.eval_count += 1
-        index_str = str(self.eval_count).zfill(4)
+        index_str = str(eval_id).zfill(4)
         out_name = f"run_{index_str}"
 
         cmd = [self.executable, "-i", self.input_file.name]
@@ -109,15 +157,15 @@ class MOOSEObjectiveFunction:
 
         elapsed = time.time() - start_time
         # 记录历史
-        self.eval_history.append({
-            'eval_id': self.eval_count,
+        history_record = {
+            'eval_id': eval_id,
             'parameters': parameters.tolist(),
             'objective': objective,
             'elapsed_time': elapsed,
             'status': status
-        })
+        }
 
-        return objective
+        return objective, history_record
 
     def _calculate_objective(self, csv_file):
         """
@@ -230,8 +278,8 @@ class MOOSEObjectiveFunction:
             ax.scatter(common_u, f_exp_on_common, marker='o', s=30, color='C0', facecolors='none', label='Interpolation Points (Exp)')
             ax.scatter(common_u, f_sim_on_common, marker='+', s=30, color='C1', label='Interpolation Points (Sim)')
 
-            ax.set_xlabel('Displacement ($\mu$m)')
-            ax.set_ylabel('Force (mN)')
+            ax.set_xlabel(r'Displacement ($\mu$m)')
+            ax.set_ylabel(r'Force (mN)')
             ax.set_title(f'(RMSE={rmse:.3e})')
             ax.legend(loc='best')
             ax.grid(True, linestyle='--', alpha=0.4)
@@ -264,7 +312,6 @@ class MOOSEObjectiveFunction:
         df = pd.DataFrame(df_data)
         output_path = self.work_dir / filename
         df.to_csv(output_path, index=False)
-        print(f"Saved evaluation history to {filename}")
         return df
 
 def run_pso_optimization(config: dict):
@@ -320,18 +367,47 @@ def run_pso_optimization(config: dict):
         n_particles=n_particles,
         dimensions=len(param_config['names']),
         options=options,
-        bounds=bounds
-    )
-
-    # Perform optimization
-    start_time = time.time()
-    cost, pos = optimizer.optimize(
-        objective_func,
-        iters=max_iters,
+        bounds=bounds,
         ftol=1e-6,
-        ftol_iter=5
+        ftol_iter=5        
     )
 
+    # 定义迭代回调函数，每次迭代后保存历史和绘图
+    def iteration_callback(iteration, cost_history):
+        """在每次迭代后调用，保存历史和绘制收敛曲线"""
+        print(f"迭代 {iteration}: 最优成本 = {cost_history[-1]:.6e}")
+        
+        # 保存历史记录
+        history_file = objective_func.work_dir / f"pso_evaluation_history_iter_{iteration:04d}.csv"
+        df_history = objective_func.save_history(filename=history_file.name)
+        
+        # 绘制收敛曲线
+        fig, ax = plt.subplots(figsize=(4, 3.6))
+        ax.plot(cost_history, color='blue', linewidth=1.5)
+        ax.scatter(len(cost_history)-1, cost_history[-1], color='red', s=50, zorder=5)
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Best Cost")
+        ax.set_title(f"PSO Convergence (Iter {iteration})")
+        ax.grid(True, linestyle='--', alpha=0.3)
+        plt.tight_layout()
+        
+        plot_file = objective_func.work_dir / f"pso_convergence_iter_{iteration:04d}.png"
+        plt.savefig(plot_file, dpi=150)
+        plt.close(fig)
+        
+        print(f"  已保存: {history_file.name}, {plot_file.name}")
+
+    # Perform optimization with callback
+    start_time = time.time()
+    
+    # 手动迭代循环以便在每次迭代后调用回调
+    for i in range(max_iters):
+        optimizer.optimize(objective_func, iters=1)
+        iteration_callback(i + 1, optimizer.cost_history)
+    
+    cost = optimizer.cost_history[-1]
+    pos = optimizer.pos
+    
     elapsed_time = time.time() - start_time
 
     # Output results
@@ -344,8 +420,10 @@ def run_pso_optimization(config: dict):
     print(f"Optimization completed in {elapsed_time:.2f} seconds.")
 
     
-    # 保存历史
-    df_history = objective_func.save_history()
+    # 保存最终历史
+    final_history_file = "pso_evaluation_history_final.csv"
+    df_history = objective_func.save_history(filename=final_history_file)
+    print(f"最终历史记录已保存: {final_history_file}")
     
     # 保存最优参数
     result_file = objective_func.work_dir / "pso_optimal_parameters.yaml"
@@ -363,15 +441,23 @@ def run_pso_optimization(config: dict):
     
     with open(result_file, 'w') as f:
         yaml.dump(result, f, default_flow_style=False)
-    print(f"\n结果已保存: {result_file}")
+    print(f"\n最优参数已保存: {result_file}")
 
+    # 绘制最终收敛曲线（高分辨率）
     fig, ax = plt.subplots(figsize=(4, 3.6))
-    ax.plot(optimizer.cost_history,color='blue')
+    ax.plot(optimizer.cost_history, color='blue', linewidth=1.5)
+    ax.scatter(len(optimizer.cost_history)-1, optimizer.cost_history[-1], color='red', s=80, zorder=5, label='Final Best')
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Best Cost")
-    ax.set_title("PSO Convergence Curve")
+    ax.set_title("PSO Convergence Curve (Final)")
+    ax.grid(True, linestyle='--', alpha=0.3)
+    ax.legend()
     plt.tight_layout()
-    plt.savefig("pso_convergence_curve.png", dpi=300)
+    
+    final_plot = objective_func.work_dir / "pso_convergence_final.png"
+    plt.savefig(final_plot, dpi=300)
+    plt.close(fig)
+    print(f"最终收敛曲线已保存: {final_plot.name}")
 
 
     # # 3D Scatter plot of particle positions
