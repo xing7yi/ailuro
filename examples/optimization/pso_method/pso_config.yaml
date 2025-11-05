@@ -3,37 +3,37 @@
 
 # MOOSE可执行文件和输入文件（直接使用原始文件，无需模板）
 executable: "ailuro-opt"
+work_dir: "2d_particle"
 input_file: "particle_friction_plastic_voce.i"
-work_dir: "pso_optimization_work"
 timeout: 180  # 单次模拟超时时间（秒）
 
-# 输出文件配置
-output_csv: "forward_out.csv"  # MOOSE输出的CSV文件名
-objective_column: "objective_value"  # 目标函数所在列名
+# 输出文件变量
+filebase_param: "out_name" # MOOSE输入文件中用于指定输出文件名的变量
+output_dir: "results"  # 输出文件存放目录
 
-# 需要复制到工作目录的辅助文件（网格、数据等）
-auxiliary_files:
-  - "316L_2d_particle_contact_structural_ref_1.msh"
-  - "ObjectiveCSV/extracted_disp_force.csv"
+# 目标函数计算参数
+result_col_x: "disp_um"  # 用于计算目标函数的位移列名
+result_col_y: "force_mN"     # 用于计算目标函数的力列名
+objective_csv: "ObjectiveCSV/316L_CL_0004_D27.485_T11.55.csv"  # 实验数据（位移-力）CSV文件路径
 
 # 优化参数配置
 parameters:
-  names: ["x0", "x1", "x2"]  # 参数名称（对应输入文件中的变量）
+  names: ["p0", "p1", "p2"]  # 参数名称（对应输入文件中的变量）
   paths:  # MOOSE中的参数路径（用于命令行覆盖，使用顶层变量）
-    - "x0"  # yield_stress
-    - "x1"  # hardening_constant  
-    - "x2"  # q
+    - "p0"  # yield_stress
+    - "p1"  # hardening_constant  
+    - "p2"  # q
   descriptions: ["屈服应力 (yield_stress)", "硬化常数R (hardening_constant)", "硬化参数Q (q)"]
-  lower_bounds: [-5.12, -5.12, -5.12]      # 参数下界
-  upper_bounds: [5.12, 5.12, 5.12]  # 参数上界
+  lower_bounds: [10, 0, 0]      # 参数下界
+  upper_bounds: [1200, 2000, 800]  # 参数上界
 
 # PSO算法配置
 pso:
   n_particles: 20           # 粒子数量
-  max_iterations: 500        # 最大迭代次数
-  inertia_weight: 0.7       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
-  cognitive_param: 1.5      # 认知参数 c1 (通常1.5-2.0)
-  social_param: 1.5         # 社会参数 c2 (通常1.5-2.0)
+  max_iterations: 50        # 最大迭代次数
+  inertia_weight: 0.9       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
+  cognitive_param: 2.0      # 认知参数 c1 (通常1.5-2.0)
+  social_param: 2.0         # 社会参数 c2 (通常1.5-2.0)
 
 # 说明:
 # - n_particles: 建议 10-30, 参数越多需要越多粒子
