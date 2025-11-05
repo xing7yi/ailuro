@@ -29,11 +29,11 @@ parameters:
 
 # PSO算法配置
 pso:
-  n_particles: 20           # 粒子数量
+  n_particles: 25           # 粒子数量
   max_iterations: 50        # 最大迭代次数
-  inertia_weight: 0.9       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
-  cognitive_param: 2.0      # 认知参数 c1 (通常1.5-2.0)
-  social_param: 2.0         # 社会参数 c2 (通常1.5-2.0)
+  inertia_weight: 0.7       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
+  cognitive_param: 1.5      # 认知参数 c1 (通常1.5-2.0)
+  social_param: 1.5         # 社会参数 c2 (通常1.5-2.0)
 
 # 说明:
 # - n_particles: 建议 10-30, 参数越多需要越多粒子
