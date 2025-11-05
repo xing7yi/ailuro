@@ -37,11 +37,18 @@ GenericReal<is_ad>
 IsotropicVoceLawHardeningStressUpdateTempl<is_ad>::computeHardeningValue(
     const GenericReal<is_ad> & scalar)
 {
-  _hardening_variable[_qp] = _q * (1.0 - std::exp(-_b * scalar));
-
-  return (_hardening_variable_old[_qp] + _hardening_slope * scalar +
-          _b * (_q - _hardening_variable_old[_qp]) *
-              this->_effective_inelastic_strain_increment);
+  // EXACT Voce formula using TOTAL accumulated plastic strain
+  // scalar = plastic strain increment in current Newton iteration
+  // Total plastic strain = old + increment
+  const GenericReal<is_ad> total_plastic_strain = 
+      this->_effective_inelastic_strain_old[_qp] + scalar;
+  
+  // Update Voce hardening variable for output/monitoring
+  _hardening_variable[_qp] = _q * (1.0 - std::exp(-_b * total_plastic_strain));
+  
+  // Return EXACT hardening value: H = R*epsilon_total + Q*(1 - exp(-b*epsilon_total))
+  // This differs from MOOSE official which uses first-order approximation
+  return (_hardening_slope * total_plastic_strain + _hardening_variable[_qp]);
 }
 
 template class IsotropicVoceLawHardeningStressUpdateTempl<false>;
