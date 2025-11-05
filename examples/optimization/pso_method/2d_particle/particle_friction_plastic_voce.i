@@ -4,7 +4,6 @@ E = 193e3
 p0 = 404.96
 p1 = 802.53
 p2 = 315.89
-p3 = 10
 out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
 
 [GlobalParams]
