@@ -27,6 +27,7 @@
 # Python cache
 *.pyc
 __pycache__/
+*.egg-info/
 
 # PlotPostprocessor auto-generated scripts and outputs
 ailuro_plot.py
