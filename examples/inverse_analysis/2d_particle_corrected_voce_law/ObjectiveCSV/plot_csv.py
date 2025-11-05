@@ -7,7 +7,7 @@ from scipy.interpolate import interp1d
 
 if __name__ == "__main__":
     # file = list(Path('.').glob('*.csv'))
-    df = pd.read_csv("316L_CL_0004_D27.485_T11.7.csv")
+    df = pd.read_csv("316L_CL_0004_D27.485_T11.55.csv")
     time , disp , force = np.array(df["time"]), np.array(df["disp"]), np.array(df["force"])
 
     fig,ax = plt.subplots(1,1, figsize=(4, 3.6))
@@ -17,7 +17,7 @@ if __name__ == "__main__":
     ax.legend()
     # plt.show()
     plt.tight_layout()
-    plt.savefig("316L_CL_0004_D27.485_T11.7_force_time.pdf")
+    plt.savefig("316L_CL_0004_D27.485_T11.55_force_time.pdf")
 
     # # 1. 以位移为自变量建立力的插值
     # F = interp1d(df["disp"], df["force"], kind="cubic", fill_value="extrapolate")
@@ -54,7 +54,8 @@ if __name__ == "__main__":
 
 
     # 额外：提取特定时间点的力和位移
-    time_index = np.array([2.5,5,7.5,10,11.55])
+    # time_index = np.array([2.5,5,7.5,10,11.55])
+    time_index = np.array([1.0, 2.0, 3.5, 5.0, 6.5, 8.0, 9.5, 11.55])
     # corresponding force and displacement values
     disp_values = np.array([disp[time==t][0] for t in time_index])
     force_values = np.array([force[time==t][0] for t in time_index])
@@ -71,10 +72,11 @@ if __name__ == "__main__":
     output_df.to_csv("extracted_disp_force.csv", index=False)
 
 
-    # 读取模拟结果
+    # 读取MOOSE模拟结果
     # df2 = pd.read_csv("../particle_friction_plastic_voce_out_p0_186.42_p1_823.72_p3_810.csv")
     # df2 = pd.read_csv("../particle_friction_plastic_voce_p0_400_p1_800_p2_300.csv")
-    # time2, disp2, force2 = np.array(df2["time"]), np.array(df2["disp_abs"]), np.array(df2["force"])
+    df2 = pd.read_csv("../particle_friction_plastic_voce_p0_404.96_p1_802.53_p2_315.89_p3_10.csv")
+    time2, disp2, force2 = np.array(df2["time"]), np.array(df2["disp_abs"]), np.array(df2["force"])
 
     df3 = pd.read_csv("No_3_D_0.027485_CR_0.4805_E_100000_C1_400_C2_800_C3_300_C4_10.csv")
     disp3, force3 = np.array(df3["displacement"]), np.array(df3["force"])
@@ -83,13 +85,13 @@ if __name__ == "__main__":
     fig,ax = plt.subplots(1,1, figsize=(4, 3.6))
     ax.plot(1e0 * disp / 2, force, marker='o', markersize=1, linewidth=1, color='blue', label='Experiment Result')    
     ax.plot(1e0 * disp_values / 2, force_values, 'rs', markersize=6, label='Extracted Points')
-    # ax.plot(1e3 * disp2, 1e3*force2, 'g^', markersize=2, label='MOOSE Result')
+    ax.plot(1e3 * disp2, 1e3*force2, 'g^', markersize=2, label='MOOSE Result')
     ax.plot(1e0 * disp3, 1e0*force3, 'mD', markersize=2, label='ANSYS Result')
     ax.set_xlabel('Displacement (mm)')
     ax.set_ylabel('Force (N)')
     ax.legend()
     plt.tight_layout()
-    plt.savefig("316L_CL_0004_D27.485_T11.7_force_disp.pdf")
+    plt.savefig("316L_CL_0004_D27.485_T11.55_force_disp.pdf")
 
     # 
 
