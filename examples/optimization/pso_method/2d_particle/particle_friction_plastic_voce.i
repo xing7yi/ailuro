@@ -1,9 +1,11 @@
 tmax = 11.55
+uy_max = -6.603e-3
 p0 = 404.96
 p1 = 802.53
 p2 = 315.89
 p3 = 10
-# uy_max = -6.603e-3
+out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
+
 [GlobalParams]
     displacements = 'disp_x disp_y'
 []
@@ -17,7 +19,7 @@ p3 = 10
 [Mesh]
     [simple_mesh]
         type = FileMeshGenerator
-        file = 316L_2d_particle_contact_structural_ref_1.msh
+        file = ./mesh_files/316L_2d_particle_contact_structural_ref_1.msh
     []
     uniform_refine = 0
     allow_renumbering = false
@@ -89,27 +91,20 @@ p3 = 10
         value = 0
     []
 
-    # [disp_y_load]
-    #     type = ADFunctionDirichletBC
-    #     variable = disp_y
-    #     boundary = Indenter_Top_Edge
-    #     function = ${uy_max}*t/${tmax}
-    # []
-    [pressure_load]
-        type = ADPressure
-        boundary = Indenter_Top_Edge
-        function = 563.4308*t/${tmax}
+    [disp_y_load]
+        type = ADFunctionDirichletBC
         variable = disp_y
+        boundary = Indenter_Top_Edge
+        function = ${uy_max}*t/${tmax}
     []
+    # [pressure_load]
+    #     type = ADPressure
+    #     boundary = Indenter_Top_Edge
+    #     function = 563.4308*t/${tmax}
+    #     variable = disp_y
+    # []
 []
 
-[Functions]
-    [disp_y]
-        type = PiecewiseLinear
-        x = '0.  11.55    20.'
-        y = '0.  -6.603e-3 0'
-    []
-[]
 
 [Contact]
     [contact]
@@ -215,59 +210,64 @@ p3 = 10
         variable = disp_y
         point = '0 0.0137425 0'
     []
-    [disp_abs]
+    [disp_um]
         type = ParsedPostprocessor
         pp_names = 'disp'
-        expression = 'abs(disp)'
+        expression = '2*1e3*abs(disp)' # RZ坐标系下，位移需乘以2
     []
     [force]
         type = NodalSum
         variable = saved_y
         boundary = Specimen_Bottom_Edge
     []
-
-    [spec_avg_vonmises]
-        type = ElementAverageValue
-        variable = vonmises_stress
-        block = Specimen_Body
-    []
-    
-    [contact_pressure_integral]
-        type = SideIntegralVariablePostprocessor
-        variable = contact_pressure
-        boundary = Specimen_Top_Edge
-        use_displaced_mesh = true
-    []
-    
-    [contact_pressure_max]
-        type = NodalExtremeValue
-        variable = contact_pressure
-        value_type = max
-        boundary = Specimen_Top_Edge
-    []
-
-    [contact_active_area]
-        type = SideIntegralVariablePostprocessor
-        variable = contact_active
-        boundary = Specimen_Top_Edge
-        use_displaced_mesh = true
-    []
-    [contact_pressure_avg]
+    [force_mN]
         type = ParsedPostprocessor
-        pp_names = 'contact_pressure_integral contact_active_area'
-        expression = 'contact_pressure_integral / contact_active_area'
+        pp_names = 'force'
+        expression = '1e3*abs(force)'
     []
-    [plot_force_disp]
-        type = PlotPostprocessor
-        x_variable = disp_abs
-        y_variable = force
-        plot_title = 'Force vs Displacement'
-        x_label = 'Displacement ($\\mu m$)'
-        y_label = 'Force (N)'
-        real_time_plot = true
-        plot_frequency = 1
-        style = 'b-'
-    []
+
+    # [spec_avg_vonmises]
+    #     type = ElementAverageValue
+    #     variable = vonmises_stress
+    #     block = Specimen_Body
+    # []
+    
+    # [contact_pressure_integral]
+    #     type = SideIntegralVariablePostprocessor
+    #     variable = contact_pressure
+    #     boundary = Specimen_Top_Edge
+    #     use_displaced_mesh = true
+    # []
+    
+    # [contact_pressure_max]
+    #     type = NodalExtremeValue
+    #     variable = contact_pressure
+    #     value_type = max
+    #     boundary = Specimen_Top_Edge
+    # []
+
+    # [contact_active_area]
+    #     type = SideIntegralVariablePostprocessor
+    #     variable = contact_active
+    #     boundary = Specimen_Top_Edge
+    #     use_displaced_mesh = true
+    # []
+    # [contact_pressure_avg]
+    #     type = ParsedPostprocessor
+    #     pp_names = 'contact_pressure_integral contact_active_area'
+    #     expression = 'contact_pressure_integral / contact_active_area'
+    # []
+    # [plot_force_disp]
+    #     type = PlotPostprocessor
+    #     x_variable = disp_um
+    #     y_variable = force_mN
+    #     plot_title = 'Force vs Displacement'
+    #     x_label = 'Displacement ($\\mu m$)'
+    #     y_label = 'Force (N)'
+    #     real_time_plot = false
+    #     plot_frequency = 1
+    #     style = 'b-'
+    # []
 []
 
 # [Times]
@@ -279,7 +279,7 @@ p3 = 10
 # []
 
 [Outputs]
-    file_base = particle_friction_plastic_voce_p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
+    file_base = ${out_name}
     csv = true
     # [csv]
     #     type = CSV
@@ -287,9 +287,9 @@ p3 = 10
     #     sync_times_object = csv_times
     #     execute_reporters_on = 'NONE'
     # []
-    [out]
-        type = Exodus
-        elemental_as_nodal = true
-        time_step_interval = 1
-    []
+    # [out]
+    #     type = Exodus
+    #     elemental_as_nodal = true
+    #     time_step_interval = 1
+    # []
 []
