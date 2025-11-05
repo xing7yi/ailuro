@@ -149,36 +149,83 @@ class MOOSEObjectiveFunction:
             print(f"   数据点不足以插值：仿真 {len(f_sim)}, 实验 {len(f_exp)}")
             return 1e10
 
-        # 按力升序排序
-        sim_sort = np.argsort(f_sim)
-        f_sim_sorted = f_sim[sim_sort]
-        u_sim_sorted = u_sim[sim_sort]
+        # 取位移和力数组（按位移排序以便插值）
+        u_sim = np.asarray(df_sim[self.result_col_x].astype(float))
+        f_sim = np.asarray(df_sim[self.result_col_y].astype(float))
 
-        exp_sort = np.argsort(f_exp)
-        f_exp_sorted = f_exp[exp_sort]
-        u_exp_sorted = u_exp[exp_sort]
+        u_exp = np.asarray(df_exp[self.result_col_x].astype(float))
+        f_exp = np.asarray(df_exp[self.result_col_y].astype(float))
 
-        # 共同力区间（取两者重叠部分）
-        f_max = min(f_sim_sorted[-1], f_exp_sorted[-1])
-        f_min = f_max / self.n_interp_points
-        if f_max <= f_min:
-            print(f"   仿真与实验力范围无重叠: sim [{f_sim_sorted[0]:.3e}, {f_sim_sorted[-1]:.3e}], exp [{f_exp_sorted[0]:.3e}, {f_exp_sorted[-1]:.3e}]")
+        if len(u_sim) < 2 or len(u_exp) < 2:
+            print(f"   数据点不足以插值：仿真 {len(u_sim)}, 实验 {len(u_exp)}")
             return 1e10
 
-        # 在共同力区间上生成等间距力点，并对仿真与实验的位移分别插值到这些力点上
-        common_f = np.linspace(f_min, f_max, num=self.n_interp_points)
+        # 按位移升序排序
+        sim_sort = np.argsort(u_sim)
+        u_sim_sorted = u_sim[sim_sort]
+        f_sim_sorted = f_sim[sim_sort]
+
+        exp_sort = np.argsort(u_exp)
+        u_exp_sorted = u_exp[exp_sort]
+        f_exp_sorted = f_exp[exp_sort]
+
+        # 共同位移上限（取两者最大位移的较小者）
+        umax = min(u_sim_sorted[-1], u_exp_sorted[-1])
+        if umax <= 0:
+            print(f"   无效的最大位移 umax={umax}")
+            return 1e10
+
+        # 按用户要求，位移最小值 umin = umax / n_points
+        umin = umax / float(self.n_interp_points)
+
+        # 在 [umin, umax] 上生成等间距位移点
+        common_u = np.linspace(umin, umax, num=self.n_interp_points)
+
         try:
-            u_sim_on_common = np.interp(common_f, f_sim_sorted, u_sim_sorted)
-            u_exp_on_common = np.interp(common_f, f_exp_sorted, u_exp_sorted)
+            f_sim_on_common = np.interp(common_u, u_sim_sorted, f_sim_sorted)
+            f_exp_on_common = np.interp(common_u, u_exp_sorted, f_exp_sorted)
         except Exception as e:
             print(f"   插值失败: {e}")
             return 1e10
 
-        # 这里比较的是位移的RMSE（在相同力点下的位移误差）
-        mse = np.mean((u_sim_on_common - u_exp_on_common) ** 2)
+        # 在共同位移点上比较力的RMSE（因为插值后位移一致）
+        mse = np.mean((f_sim_on_common - f_exp_on_common) ** 2)
         rmse = float(np.sqrt(mse))
 
-        print(f"   仿真点数: {len(f_sim)}, 实验点数: {len(f_exp)}, RMSE(u)={rmse:.6e}")
+        print(f"   仿真点数: {len(u_sim)}, 实验点数: {len(u_exp)}, 共用位移区间: [{umin:.6e}, {umax:.6e}], 插值点: {self.n_interp_points}, RMSE(F)={rmse:.6e}")
+
+        # 绘图：比较实验与仿真力-位移曲线，并标注用于插值的共同位移点
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+
+            fig, ax = plt.subplots(figsize=(6,4))
+            # 原始曲线
+            ax.plot(u_exp_sorted, f_exp_sorted, label='Experimental', color='C0', linewidth=1)
+            ax.plot(u_sim_sorted, f_sim_sorted, label='Simulation', color='C1', linewidth=1)
+
+            # 插值点（共同位移网格）
+            ax.scatter(common_u, f_exp_on_common, marker='o', s=30, color='C0', facecolors='none', label='Interpolation Points (Exp)')
+            ax.scatter(common_u, f_sim_on_common, marker='+', s=30, color='C1', label='Interpolation Points (Sim)')
+
+            ax.set_xlabel('Displacement ($\mu$m)')
+            ax.set_ylabel('Force (mN)')
+            ax.set_title(f'(RMSE={rmse:.3e})')
+            ax.legend(loc='best')
+            ax.grid(True, linestyle='--', alpha=0.4)
+
+            # 保存图片到与 CSV 相同目录，文件名根据 csv_file 命名
+            plot_path = csv_file.with_suffix('.png')
+            # 确保目录存在
+            plot_path.parent.mkdir(parents=True, exist_ok=True)
+            fig.tight_layout()
+            fig.savefig(plot_path, dpi=300)
+            plt.close(fig)
+            print(f"   已保存对比图: {plot_path}")
+        except Exception as e:
+            print(f"   绘图失败: {e}")
+
         return rmse
 
 def run_pso_optimization(config: dict):
