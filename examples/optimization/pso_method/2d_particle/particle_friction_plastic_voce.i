@@ -1,5 +1,6 @@
 tmax = 11.55
 uy_max = -6.603e-3
+E = 193e3
 p0 = 404.96
 p1 = 802.53
 p2 = 315.89
@@ -144,7 +145,7 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
     [elasticity_tensor_specimen]
         type = ADComputeIsotropicElasticityTensor
         block = 'Specimen_Body'
-        youngs_modulus = 193e3
+        youngs_modulus = ${E}
         poissons_ratio = 0.3
     []
     [stress_specimen]
@@ -154,7 +155,7 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
         yield_stress = ${p0}
         hardening_constant = ${p1}
         q = ${p2}
-        b = ${p3}
+        # b = ${p3}
     []
     [return_stress]
         type = ADComputeMultipleInelasticStress
