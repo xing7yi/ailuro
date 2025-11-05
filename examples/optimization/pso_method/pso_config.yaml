@@ -7,6 +7,11 @@ work_dir: "2d_particle"
 input_file: "particle_friction_plastic_voce.i"
 timeout: 180  # 单次模拟超时时间（秒）
 
+# 并行计算配置
+use_parallel: true  # 是否启用并行计算
+max_workers: 4      # 最大并行进程数（建议不超过 CPU 核心数的一半）
+n_interp_points: 10 # 插值点数量
+
 # 输出文件变量
 filebase_param: "out_name" # MOOSE输入文件中用于指定输出文件名的变量
 output_dir: "results"  # 输出文件存放目录
@@ -29,7 +34,7 @@ parameters:
 
 # PSO算法配置
 pso:
-  n_particles: 25           # 粒子数量
+  n_particles: 4           # 粒子数量
   max_iterations: 50        # 最大迭代次数
   inertia_weight: 0.7       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
   cognitive_param: 1.5      # 认知参数 c1 (通常1.5-2.0)
