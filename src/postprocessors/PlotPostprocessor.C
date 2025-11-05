@@ -1,4 +1,5 @@
 #include "PlotPostprocessor.h"
+#include "ExecutablePath.h"
 #include <fstream>
 #include <sstream>
 
@@ -17,9 +18,13 @@ PlotPostprocessor::validParams()
   params.addParam<std::string>("y_label", "", "Label for the y-axis");
   params.addParam<std::string>("plot_title", "", "Title for the plot");
   params.addParam<std::string>("style", "", "Plot style (e.g., line, scatter)");
-  params.addParam<std::string>("output_file", "ailuro_plot.png", "Output image file name");
   params.addParam<bool>("real_time_plot", false, "Generate plot at each time step");
   params.addParam<unsigned int>("plot_frequency", 1, "Plot every N time steps");
+
+  // Add EXEC_FINAL to execute_on to ensure final plot is generated
+  ExecFlagEnum & exec_enum = params.set<ExecFlagEnum>("execute_on", true);
+  exec_enum.addAvailableFlags(EXEC_FINAL);
+  exec_enum += EXEC_FINAL;
 
   return params;
 }
@@ -34,21 +39,61 @@ PlotPostprocessor::PlotPostprocessor(const InputParameters & parameters)
                                                       : getParam<std::string>("y_label")),
     _plot_title(getParam<std::string>("plot_title")),
     _style(getParam<std::string>("style")),
-    _output_file(getParam<std::string>("output_file")),
     _real_time_plot(getParam<bool>("real_time_plot")),
     _plot_frequency(getParam<unsigned int>("plot_frequency")),
     _time_step_counter(0),
     _python_pipe(nullptr),
     _python_initialized(false)
 {
+  // Generate output file name
+  _output_file = _app.getOutputFileBase() + "_" + name() + ".png";
 }
 
 void
 PlotPostprocessor::initialize()
 {
-  if (_real_time_plot && processor_id() == 0 && !_python_initialized)
+  if (processor_id() != 0)
+    return;
+
+  // Update output filename based on current file_base
+  std::string current_output_file = _app.getOutputFileBase() + "_" + name() + ".png";
+
+  // Detect new sub-app: output filename has changed
+  if (current_output_file != _output_file)
   {
+    // Close existing Python process if any
+    closePythonProcess();  
+    // Update output filename
+    _output_file = current_output_file;
+
+  }
+
+  // Initialize Python process if needed
+  if (!_python_initialized)
     initializePythonProcess();
+}
+
+void
+PlotPostprocessor::execute()
+{
+  if (processor_id() != 0)
+    return;
+
+  // Regular execution: accumulate data
+  _time_step_counter++;
+
+  Real x_val = getPostprocessorValueByName(_x_variable);
+  Real y_val = getPostprocessorValueByName(_y_variable);
+  _x_data.push_back(x_val);
+  _y_data.push_back(y_val);
+
+  // Update plot at specified frequency if real_time_plot is enabled
+  bool reach_final = (_fe_problem.getCurrentExecuteOnFlag() == EXEC_FINAL);
+  _console << "PlotPostprocessor: reach_final=" << reach_final << ", _real_time_plot=" << _real_time_plot << ", _time_step_counter=" << _time_step_counter << ", _plot_frequency=" << _plot_frequency << std::endl;
+  if ((_real_time_plot && (_time_step_counter % _plot_frequency == 0)) || reach_final)
+  {
+    _console << "PlotPostprocessor: Updating plot at step " << _time_step_counter << std::endl;
+    updatePlotData(_x_data, _y_data);
   }
 }
 
@@ -62,73 +107,33 @@ PlotPostprocessor::~PlotPostprocessor()
   if (processor_id() != 0)
     return;
 
-  if (_real_time_plot)
-  {
-    // real-time mode: close persistent Python process
-    closePythonProcess();
-  }
-  else if (!_x_data.empty())
-  {
-    // batch mode: start Python process, send data once, then close
-    _console << "PlotPostprocessor: Generating final plot with " << _x_data.size()
-             << " data points..." << std::endl;
-
-    initializePythonProcess();
-    if (_python_initialized)
-    {
-      updatePlotData(_x_data, _y_data);
-      closePythonProcess();
-    }
-  }
-}
-
-void
-PlotPostprocessor::execute()
-{
-  _time_step_counter++;
-
-  Real x_val = getPostprocessorValueByName(_x_variable);
-  Real y_val = getPostprocessorValueByName(_y_variable);
-  _x_data.push_back(x_val);
-  _y_data.push_back(y_val);
-
-  // real-time plotting mode: update data via pipe (at specified frequency)
-  if (_real_time_plot && _python_initialized && (_time_step_counter % _plot_frequency == 0))
-  {
-    if (processor_id() == 0)
-    {
-      _console << "PlotPostprocessor: Updating plot at step " << _time_step_counter << std::endl;
-      updatePlotData(_x_data, _y_data);
-    }
-  }
-}
-
-PostprocessorValue
-PlotPostprocessor::getValue() const
-{
-  return _time_step_counter;
+  closePythonProcess();
 }
 
 void
 PlotPostprocessor::initializePythonProcess()
 {
   if (_python_initialized)
-    return;
+  return;
 
   _console << "PlotPostprocessor: Initializing persistent Python plotting process..." << std::endl;
 
-  // Search for Ailuro's standalone Python plotting tool (similar to MOOSE)
-  std::vector<std::string> search_paths = {
-      "../python/realtime_plotter.py",    // from build directory
-      "../../python/realtime_plotter.py", // from examples directory
-      "python/realtime_plotter.py"        // from ailuro root directory
-  };
+  // Search for Ailuro's standalone Python plotting tool
+  std::vector<std::string> search_paths;
 
-  // If the AILURO_DIR environment variable is set
-  const char * ailuro_dir = std::getenv("AILURO_DIR");
-  if (ailuro_dir)
-    search_paths.insert(search_paths.begin(),
-                        std::string(ailuro_dir) + "/python/realtime_plotter.py");
+  // Use getExecutablePath() to get full path, not just the name
+  std::string exe_path = Moose::getExecutablePath();
+
+  if (!exe_path.empty())
+  {
+    // obtain directory of the executable
+    size_t last_slash = exe_path.find_last_of("/\\");
+    if (last_slash != std::string::npos)
+    {
+      std::string exe_dir = exe_path.substr(0, last_slash);
+      search_paths.push_back(exe_dir + "/python/realtime_plotter.py");
+    }
+  }
 
   std::string plotter_script;
   for (const auto & path : search_paths)
@@ -146,8 +151,6 @@ PlotPostprocessor::initializePythonProcess()
     mooseError("PlotPostprocessor: Cannot find realtime_plotter.py. "
                "Set AILURO_DIR or run from build directory.");
   }
-
-  _console << "  Using plotter: " << plotter_script << std::endl;
 
   std::stringstream cmd_builder;
   cmd_builder << "python3 -u " << plotter_script;
@@ -192,7 +195,10 @@ PlotPostprocessor::closePythonProcess()
   _python_pipe = nullptr;
   _python_initialized = false;
 
-  _console << "PlotPostprocessor: Plot saved to " << _output_file << std::endl;
+  // Clear data
+  _x_data.clear();
+  _y_data.clear();
+  _time_step_counter = 0;
 }
 
 void
@@ -226,4 +232,10 @@ PlotPostprocessor::updatePlotData(const std::vector<Real> & x_data,
     _console << "ERROR: Failed to flush Python pipe" << std::endl;
     return;
   }
+}
+
+PostprocessorValue
+PlotPostprocessor::getValue() const
+{
+  return _time_step_counter;
 }

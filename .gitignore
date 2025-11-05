@@ -31,7 +31,6 @@ __pycache__/
 
 # PlotPostprocessor auto-generated scripts and outputs
 ailuro_plot.py
-plot_*.py
 *.pdf
 *.png
 
