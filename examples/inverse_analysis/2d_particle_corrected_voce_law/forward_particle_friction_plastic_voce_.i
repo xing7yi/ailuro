@@ -118,8 +118,8 @@ tmax = 11.55
     []
     [measurement_time_knots]
         type = PiecewiseLinear
-        x = '0 2.5 5.0 7.5 10.0 11.55'
-        y = '0 0 0 0 0 0'
+        x = '0 1.0 2.0 3.5 5.0 6.5 8.0 9.5 11.55'
+        y = '0 0 0 0 0 0 0 0 0'
     []
   [yield_fun]
     type = ParsedOptimizationFunction
@@ -337,7 +337,7 @@ tmax = 11.55
         plot_title = 'Force vs Displacement'
         x_label = 'Displacement ($\\mu m$)'
         y_label = 'Force (N)'
-        real_time_plot = true
+        real_time_plot = false
         plot_frequency = 1
         style = 'b-'
     []
