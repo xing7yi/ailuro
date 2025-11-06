@@ -389,8 +389,8 @@ def create_hertz_model_structural_mesh(file_name:str,refine_level:int=1):
     #  *                       *
     #  *   *   *   3   *   *   *
     len_factor = 1e-3
-    radius = 27.485/2 * len_factor
-
+    # radius = 1000 * len_factor
+    radius = 1 # mm
 
     p_center = f.addPoint(0, 0, 0)    
     p_outer_y = f.addPoint(0, radius, 0)
@@ -654,4 +654,4 @@ if __name__ == "__main__":
     # create_hertz_model_half_space("hertz_contact_half_space.msh",refine_level=1)
     # create_hertz_model_contact_area_refine("hertz_contact_refine.msh")
     # create_hertz_model_structural_mesh("hertz_contact_structural_ref_2.msh",2)    #bottom edge div num : 30*1
-    create_hertz_model_structural_mesh("316L_2d_particle_contact_structural_ref_2.msh",2)    #bottom edge div num : 30*1
+    create_hertz_model_structural_mesh("316L_2d_particle_contact_structural_ref_1.msh",1)    #bottom edge div num : 30*1
