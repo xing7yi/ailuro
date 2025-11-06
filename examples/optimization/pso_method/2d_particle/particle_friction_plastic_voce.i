@@ -1,9 +1,11 @@
 tmax = 11.55
 uy_max = -6.603e-3
 E = 193e3
-p0 = 404.96
-p1 = 802.53
-p2 = 315.89
+p0 = 400
+p1 = 800
+p2 = 300
+p3 = 10
+
 out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
 
 [GlobalParams]
@@ -154,7 +156,7 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
         yield_stress = ${p0}
         hardening_constant = ${p1}
         q = ${p2}
-        # b = ${p3}
+        b = ${p3}
     []
     [return_stress]
         type = ADComputeMultipleInelasticStress
