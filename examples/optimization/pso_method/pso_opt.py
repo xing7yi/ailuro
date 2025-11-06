@@ -23,15 +23,14 @@ class MOOSEObjectiveFunction:
         self.executable = config.get('executable', 'ailuro-opt')
         self.input_file = Path(config['input_file'])
         self.work_dir = Path(config.get('work_dir', '.'))
-        self.output_dir = Path(config.get('output_dir', 'results'))
+        self.output_dir = self.work_dir / Path(config.get('output_dir', 'results'))
         self.filebase_param = config.get('filebase_param', 'out_name')
         self.timeout = config.get('timeout', 300)
 
-        self.result_col_x = config.get('result_col_x', 'disp')
-        self.result_col_y = config.get('result_col_y', 'force')
+        self.result_col_x = config.get('result_col_x', 'disp_um')
+        self.result_col_y = config.get('result_col_y', 'force_mN')
 
         # 实验数据（位移-力）CSV文件路径（相对 path 可能在 work_dir 中）
-        # 支持在 config 中指定：objective_csv: 'path/to/exp.csv'
         self.objective_csv = Path(config.get('objective_csv'))
         # 插值使用的固定力点数量（在仿真与实验的共同力区间上等间距）
         self.n_interp_points = int(config.get('n_interp_points', 10))
@@ -49,9 +48,6 @@ class MOOSEObjectiveFunction:
         print(f"  并行计算: {'启用' if self.use_parallel else '禁用'}")
         if self.use_parallel:
             print(f"  最大并行数: {self.max_workers} (系统CPU核心数: {multiprocessing.cpu_count()})")
-
-        # Combine work_dir and output_dir
-        self.output_dir = self.work_dir / self.output_dir
 
         # Clean and create output directory
         if self.output_dir.exists():
@@ -85,6 +81,13 @@ class MOOSEObjectiveFunction:
                         cost, history_record = future.result()
                         costs[i] = cost
                         self.eval_history.append(history_record)
+                        
+                        # 在主进程中更新计数器（根据状态）
+                        if history_record['status'] == '✓':
+                            self.success_count += 1
+                        elif history_record['status'] in ['✗', 'T']:
+                            self.fail_count += 1
+                        
                         completed += 1
                         print(f"  进度: {completed}/{n_particles} 完成")
                     except Exception as e:
@@ -100,6 +103,7 @@ class MOOSEObjectiveFunction:
                             'elapsed_time': 0,
                             'status': 'E'  # Error
                         })
+                        self.fail_count += 1  # 异常也算失败
                         completed += 1
         else:
             # 串行评估
@@ -108,6 +112,12 @@ class MOOSEObjectiveFunction:
                 cost, history_record = self.evaluate_single(particle_positions[i], self.eval_count, i, iteration)
                 costs[i] = cost
                 self.eval_history.append(history_record)
+                
+                # 在主进程中更新计数器
+                if history_record['status'] == '✓':
+                    self.success_count += 1
+                elif history_record['status'] in ['✗', 'T']:
+                    self.fail_count += 1
             
         return costs
 
@@ -376,8 +386,8 @@ def run_pso_optimization(config: dict):
         dimensions=len(param_config['names']),
         options=options,
         bounds=bounds,
-        ftol=1e-6,
-        ftol_iter=5        
+        ftol=1e-3,
+        ftol_iter=10        
     )
 
     # 定义迭代回调函数，每次迭代后保存历史和绘图
@@ -442,7 +452,7 @@ def run_pso_optimization(config: dict):
         iteration_callback(i + 1, optimizer.cost_history)
     
     cost = optimizer.cost_history[-1]
-    pos = optimizer.pos
+    pos = optimizer.swarm.best_pos  # 修正：使用 swarm.best_pos 获取全局最优位置
     
     elapsed_time = time.time() - start_time
 
@@ -463,9 +473,15 @@ def run_pso_optimization(config: dict):
     
     # 保存最优参数
     result_file = objective_func.work_dir / "pso_optimal_parameters.yaml"
+    
+    # 找到最优评估的 eval_id（转换为 Python int 类型）
+    best_idx = df_history['objective'].idxmin()
+    optimal_eval_id = int(df_history.loc[best_idx, 'eval_id'])
+    
     result = {
         'optimal_parameters': {name: float(val) for name, val in zip(param_config['names'], pos)},
         'optimal_cost': float(cost),
+        'optimal_eval_id': optimal_eval_id,
         'statistics': {
             'total_evaluations': objective_func.eval_count,
             'successful': objective_func.success_count,
