@@ -1,42 +1,54 @@
 # PSO优化器配置文件
 # 用于 pso_moose_optimizer.py
 
-# MOOSE可执行文件和输入文件（直接使用原始文件，无需模板）
+# MOOSE可执行文件和输入文件
 executable: "ailuro-opt"
-work_dir: "2d_particle"
+work_dir: "2d_particle_316L_CL_0004_D27.485"
 input_file: "particle_friction_plastic_voce.i"
-timeout: 180  # 单次模拟超时时间（秒）
-
-# 并行计算配置
-use_parallel: true  # 是否启用并行计算
-max_workers: 4      # 最大并行进程数（建议不超过 CPU 核心数的一半）
-n_interp_points: 10 # 插值点数量
-
 # 输出文件变量
 filebase_param: "out_name" # MOOSE输入文件中用于指定输出文件名的变量
-output_dir: "results"  # 输出文件存放目录
+output_dir: "results"      # 输出文件存放目录
 
+#
+max_disp_param: "uy_max"  # MOOSE输入文件中用于指定压缩比的变量
 # 目标函数计算参数
-result_col_x: "disp_um"  # 用于计算目标函数的位移列名
-result_col_y: "force_mN"     # 用于计算目标函数的力列名
-objective_csv: "ObjectiveCSV/316L_CL_0004_D27.485_T11.55.csv"  # 实验数据（位移-力）CSV文件路径
+objective_csv: "experiment_csv/normalized/316L_D27.485_CL_0004_norm.csv"  # 实验数据（位移-力）CSV文件路径
+result_col_x: "cmpr_ratio"     # 用于计算目标函数的x列名
+result_col_y: "force_norm_MPa" # 用于计算目标函数的y列名
+
+
+
+# 实验条件配置
+# exp_parameters:
+#   diameter_um: 27.485  # 试样直径（微米）
+#   max_force_mN: 752.15  # 最大力值（毫牛）
+#   max_disp_um: 13.206   # 最大位移（微米）
+#   total_time:  11.55    # 总加载时间（秒）
+
+# 并行计算配置
+use_parallel: true   # 是否启用并行计算
+max_workers: 24      # 最大并行进程数（建议不超过 CPU 核心数的一半）
+n_interp_points: 10  # 插值点数量
+timeout: 180  # 单次模拟超时时间（秒）
+
 
 # 优化参数配置
 parameters:
-  names: ["p0", "p1", "p2"]  # 参数名称（对应输入文件中的变量）
+  names: ["p0", "p1", "p2", "p3"]  # 参数名称（对应输入文件中的变量）
   paths:  # MOOSE中的参数路径（用于命令行覆盖，使用顶层变量）
     - "p0"  # yield_stress
     - "p1"  # hardening_constant  
     - "p2"  # q
-  descriptions: ["屈服应力 (yield_stress)", "硬化常数R (hardening_constant)", "硬化参数Q (q)"]
-  lower_bounds: [10, 0, 0]      # 参数下界
-  upper_bounds: [1200, 2000, 800]  # 参数上界
+    - "p3"  # b
+  descriptions: ["屈服应力 (yield_stress)", "硬化常数R (hardening_constant)", "硬化参数Q (q)", "硬化参数B (b)"]
+  lower_bounds: [10, 0, 0, 0]      # 参数下界
+  upper_bounds: [1200, 2000, 800, 1000]  # 参数上界
 
 # PSO算法配置
 pso:
-  n_particles: 4           # 粒子数量
-  max_iterations: 50        # 最大迭代次数
-  inertia_weight: 0.7       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
+  n_particles: 24           # 粒子数量
+  max_iterations: 100        # 最大迭代次数
+  inertia_weight: 0.8       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
   cognitive_param: 1.5      # 认知参数 c1 (通常1.5-2.0)
   social_param: 1.5         # 社会参数 c2 (通常1.5-2.0)
 
