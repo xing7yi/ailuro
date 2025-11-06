@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 if __name__ == "__main__":
     # file = list(Path('.').glob('*.csv'))
     df = pd.read_csv("316L_CL_0004_D27.485_T11.55.csv")
-    time , disp , force = np.array(df["time"]), np.array(df["disp"]), np.array(df["force"])
+    time , disp , force = np.array(df["time"]), np.array(df["disp_um"]), np.array(df["force_mN"])
 
     fig,ax = plt.subplots(1,1, figsize=(4, 3.6))
     ax.plot(time, force, marker='o', markersize=1, linewidth=1, color='blue', label='Experiment Result')
@@ -75,18 +75,18 @@ if __name__ == "__main__":
     # 读取MOOSE模拟结果
     # df2 = pd.read_csv("../particle_friction_plastic_voce_out_p0_186.42_p1_823.72_p3_810.csv")
     # df2 = pd.read_csv("../particle_friction_plastic_voce_p0_400_p1_800_p2_300.csv")
-    df2 = pd.read_csv("../particle_friction_plastic_voce_p0_404.96_p1_802.53_p2_315.89_p3_10.csv")
-    time2, disp2, force2 = np.array(df2["time"]), np.array(df2["disp_abs"]), np.array(df2["force"])
+    df2 = pd.read_csv("p0_400_p1_800_p2_300_p3_606.csv")
+    time2, disp2, force2 = np.array(df2["time"]), np.array(df2["disp_um"]), np.array(df2["force_mN"])
 
-    df3 = pd.read_csv("No_3_D_0.027485_CR_0.4805_E_100000_C1_400_C2_800_C3_300_C4_10.csv")
-    disp3, force3 = np.array(df3["displacement"]), np.array(df3["force"])
+    # df3 = pd.read_csv("No_3_D_0.027485_CR_0.4805_E_100000_C1_400_C2_800_C3_300_C4_10.csv")
+    # disp3, force3 = np.array(df3["displacement"]), np.array(df3["force"])
 
     # 绘制力-位移曲线,并标注特定时间点
     fig,ax = plt.subplots(1,1, figsize=(4, 3.6))
-    ax.plot(1e0 * disp / 2, force, marker='o', markersize=1, linewidth=1, color='blue', label='Experiment Result')    
-    ax.plot(1e0 * disp_values / 2, force_values, 'rs', markersize=6, label='Extracted Points')
-    ax.plot(1e3 * disp2, 1e3*force2, 'g^', markersize=2, label='MOOSE Result')
-    ax.plot(1e0 * disp3, 1e0*force3, 'mD', markersize=2, label='ANSYS Result')
+    ax.plot(disp, force, marker='o', markersize=1, linewidth=1, color='blue', label='Experiment Result')    
+    ax.plot(disp_values, force_values, 'rs', markersize=6, label='Extracted Points')
+    ax.plot(disp2, force2, 'g^', markersize=2, label='MOOSE Result')
+    # ax.plot(1e0 * disp3, 1e0*force3, 'mD', markersize=2, label='ANSYS Result')
     ax.set_xlabel('Displacement (mm)')
     ax.set_ylabel('Force (N)')
     ax.legend()
