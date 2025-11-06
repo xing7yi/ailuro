@@ -18,6 +18,8 @@ def rastrigin_3d(x):
 
 class MOOSEObjectiveFunction:
     """Objective function wrapper for MOOSE simulations."""
+
+
     def __init__(self, config):
         print("Initializing MOOSE Objective Function...")
         self.executable = config.get('executable', 'ailuro-opt')
@@ -27,11 +29,18 @@ class MOOSEObjectiveFunction:
         self.filebase_param = config.get('filebase_param', 'out_name')
         self.timeout = config.get('timeout', 300)
 
-        self.result_col_x = config.get('result_col_x', 'disp_um')
-        self.result_col_y = config.get('result_col_y', 'force_mN')
+        self.max_disp_param = config.get('max_disp_param', 'uy_max')
+
+
+        self.result_col_x = config.get('result_col_x', 'disp')
+        self.result_col_y = config.get('result_col_y', 'force')
 
         # 实验数据（位移-力）CSV文件路径（相对 path 可能在 work_dir 中）
         self.objective_csv = Path(config.get('objective_csv'))
+
+        # 根据实验数据自动确定压缩比
+        self.max_disp_value = self.get_max_disp_from_csv()
+
         # 插值使用的固定力点数量（在仿真与实验的共同力区间上等间距）
         self.n_interp_points = int(config.get('n_interp_points', 10))
         self.param_names = config['parameters']['names']
@@ -50,9 +59,10 @@ class MOOSEObjectiveFunction:
             print(f"  最大并行数: {self.max_workers} (系统CPU核心数: {multiprocessing.cpu_count()})")
 
         # Clean and create output directory
+        self.work_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         if self.output_dir.exists():
             shutil.rmtree(self.output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, particle_positions, iteration=None):
         n_particles = particle_positions.shape[0]
@@ -60,7 +70,7 @@ class MOOSEObjectiveFunction:
         
         if self.use_parallel and n_particles > 1:
             # 并行评估
-            print(f"\n并行评估 {n_particles} 个粒子 (使用 {min(self.max_workers, n_particles)} 个进程)...")
+            # print(f"\n并行评估 {n_particles} 个粒子 (使用 {min(self.max_workers, n_particles)} 个进程)...")
             
             # 预先分配评估ID（避免并行时ID冲突）
             eval_ids = list(range(self.eval_count + 1, self.eval_count + n_particles + 1))
@@ -89,7 +99,7 @@ class MOOSEObjectiveFunction:
                             self.fail_count += 1
                         
                         completed += 1
-                        print(f"  进度: {completed}/{n_particles} 完成")
+                        # print(f"  进度: {completed}/{n_particles} 完成")
                     except Exception as e:
                         print(f"  粒子 {i} 评估失败: {e}")
                         costs[i] = 1e10
@@ -121,6 +131,10 @@ class MOOSEObjectiveFunction:
             
         return costs
 
+    def get_max_disp_from_csv(self):
+        df = pd.read_csv(self.objective_csv)
+        return df[self.result_col_x].max()
+
     def evaluate_single(self, parameters, eval_id, particle_id=None, iteration=None):
         # Here you would integrate with the MOOSE simulation
         # For now, we'll use a dummy objective function
@@ -135,15 +149,18 @@ class MOOSEObjectiveFunction:
             out_name += f"_{param_name}_{param_value:.2f}"
 
         # use last part of output_dir
-        file_base = self.output_dir.name + f"/{out_name}"
+        file_base = self.output_dir / f"{out_name}"
+        # print(f"file_base: {file_base}")
         cmd.append(f"{self.filebase_param}={file_base}")
-        csv_file = self.work_dir / f"{file_base}.csv"
+        cmd.append(f"{self.max_disp_param}={-1*self.max_disp_value}")
+        csv_file = Path(str(file_base) + '.csv')
+        # print(f"csv_file: {csv_file}")
 
         start_time = time.time()
         try:
             result = subprocess.run(
                 cmd,
-                cwd=self.work_dir,
+                # cwd=self.work_dir,
                 capture_output=True,
                 timeout=self.timeout,
                 text=True
@@ -208,7 +225,7 @@ class MOOSEObjectiveFunction:
             print(f"   仿真输出缺少列: 期望 ( {self.result_col_x}, {self.result_col_y} ), 实际列: {list(df_sim.columns)}")
             return 1e10
 
-        exp_path = self.work_dir / self.objective_csv
+        exp_path = self.objective_csv
 
         try:
             df_exp = pd.read_csv(exp_path)
@@ -222,60 +239,60 @@ class MOOSEObjectiveFunction:
             return 1e10
 
         # 取位移和力数组（按力排序以便插值）
-        u_sim = np.asarray(df_sim[self.result_col_x].astype(float))
-        f_sim = np.asarray(df_sim[self.result_col_y].astype(float))
+        x_sim = np.asarray(df_sim[self.result_col_x].astype(float))
+        y_sim = np.asarray(df_sim[self.result_col_y].astype(float))
 
-        u_exp = np.asarray(df_exp[self.result_col_x].astype(float))
-        f_exp = np.asarray(df_exp[self.result_col_y].astype(float))
+        x_exp = np.asarray(df_exp[self.result_col_x].astype(float))
+        y_exp = np.asarray(df_exp[self.result_col_y].astype(float))
 
-        if len(f_sim) < 2 or len(f_exp) < 2:
-            print(f"   数据点不足以插值：仿真 {len(f_sim)}, 实验 {len(f_exp)}")
+        if len(y_sim) < 2 or len(y_exp) < 2:
+            print(f"   数据点不足以插值：仿真 {len(y_sim)}, 实验 {len(y_exp)}")
             return 1e10
 
         # 取位移和力数组（按位移排序以便插值）
-        u_sim = np.asarray(df_sim[self.result_col_x].astype(float))
-        f_sim = np.asarray(df_sim[self.result_col_y].astype(float))
+        x_sim = np.asarray(df_sim[self.result_col_x].astype(float))
+        y_sim = np.asarray(df_sim[self.result_col_y].astype(float))
 
-        u_exp = np.asarray(df_exp[self.result_col_x].astype(float))
-        f_exp = np.asarray(df_exp[self.result_col_y].astype(float))
+        x_exp = np.asarray(df_exp[self.result_col_x].astype(float))
+        y_exp = np.asarray(df_exp[self.result_col_y].astype(float))
 
-        if len(u_sim) < 2 or len(u_exp) < 2:
-            print(f"   数据点不足以插值：仿真 {len(u_sim)}, 实验 {len(u_exp)}")
+        if len(x_sim) < 2 or len(x_exp) < 2:
+            print(f"   数据点不足以插值：仿真 {len(x_sim)}, 实验 {len(x_exp)}")
             return 1e10
 
         # 按位移升序排序
-        sim_sort = np.argsort(u_sim)
-        u_sim_sorted = u_sim[sim_sort]
-        f_sim_sorted = f_sim[sim_sort]
+        sim_sort = np.argsort(x_sim)
+        x_sim_sorted = x_sim[sim_sort]
+        y_sim_sorted = y_sim[sim_sort]
 
-        exp_sort = np.argsort(u_exp)
-        u_exp_sorted = u_exp[exp_sort]
-        f_exp_sorted = f_exp[exp_sort]
+        exp_sort = np.argsort(x_exp)
+        x_exp_sorted = x_exp[exp_sort]
+        y_exp_sorted = y_exp[exp_sort]
 
         # 共同位移上限（取两者最大位移的较小者）
-        umax = min(u_sim_sorted[-1], u_exp_sorted[-1])
-        if umax <= 0:
-            print(f"   无效的最大位移 umax={umax}")
+        xmax = min(x_sim_sorted[-1], x_exp_sorted[-1])
+        if xmax <= 0:
+            print(f"   无效的最大位移 xmax={xmax}")
             return 1e10
 
-        # 按用户要求，位移最小值 umin = umax / n_points
-        umin = umax / float(self.n_interp_points)
+        # 按用户要求，位移最小值 xmin = xmax / n_points
+        xmin = xmax / float(self.n_interp_points)
 
-        # 在 [umin, umax] 上生成等间距位移点
-        common_u = np.linspace(umin, umax, num=self.n_interp_points)
+        # 在 [xmin, xmax] 上生成等间距位移点
+        common_u = np.linspace(xmin, xmax, num=self.n_interp_points)
 
         try:
-            f_sim_on_common = np.interp(common_u, u_sim_sorted, f_sim_sorted)
-            f_exp_on_common = np.interp(common_u, u_exp_sorted, f_exp_sorted)
+            y_sim_on_common = np.interp(common_u, x_sim_sorted, y_sim_sorted)
+            y_exp_on_common = np.interp(common_u, x_exp_sorted, y_exp_sorted)
         except Exception as e:
             print(f"   插值失败: {e}")
             return 1e10
 
         # 在共同位移点上比较力的RMSE（因为插值后位移一致）
-        mse = np.mean((f_sim_on_common - f_exp_on_common) ** 2)
+        mse = np.mean((y_sim_on_common - y_exp_on_common) ** 2)
         rmse = float(np.sqrt(mse))
 
-        # print(f"   仿真点数: {len(u_sim)}, 实验点数: {len(u_exp)}, 共用位移区间: [{umin:.6e}, {umax:.6e}], 插值点: {self.n_interp_points}, RMSE(F)={rmse:.6e}")
+        # print(f"   仿真点数: {len(x_sim)}, 实验点数: {len(x_exp)}, 共用位移区间: [{xmin:.6e}, {xmax:.6e}], 插值点: {self.n_interp_points}, RMSE(F)={rmse:.6e}")
 
         # 绘图：比较实验与仿真力-位移曲线，并标注用于插值的共同位移点
         try:
@@ -285,12 +302,12 @@ class MOOSEObjectiveFunction:
 
             fig, ax = plt.subplots(figsize=(6,4))
             # 原始曲线
-            ax.plot(u_exp_sorted, f_exp_sorted, label='Experimental', color='C0', linewidth=1)
-            ax.plot(u_sim_sorted, f_sim_sorted, label='Simulation', color='C1', linewidth=1)
+            ax.plot(x_exp_sorted, y_exp_sorted, label='Experimental', color='C0', linewidth=1)
+            ax.plot(x_sim_sorted, y_sim_sorted, label='Simulation', color='C1', linewidth=1)
 
             # 插值点（共同位移网格）
-            ax.scatter(common_u, f_exp_on_common, marker='o', s=30, color='C0', facecolors='none', label='Interpolation Points (Exp)')
-            ax.scatter(common_u, f_sim_on_common, marker='+', s=30, color='C1', label='Interpolation Points (Sim)')
+            ax.scatter(common_u, y_exp_on_common, marker='o', s=30, color='C0', facecolors='none', label='Interpolation Points (Exp)')
+            ax.scatter(common_u, y_sim_on_common, marker='+', s=30, color='C1', label='Interpolation Points (Sim)')
 
             ax.set_xlabel(r'Displacement ($\mu$m)')
             ax.set_ylabel(r'Force (mN)')
@@ -387,7 +404,7 @@ def run_pso_optimization(config: dict):
         options=options,
         bounds=bounds,
         ftol=1e-3,
-        ftol_iter=10        
+        ftol_iter=10
     )
 
     # 定义迭代回调函数，每次迭代后保存历史和绘图
@@ -395,7 +412,7 @@ def run_pso_optimization(config: dict):
     
     def iteration_callback(iteration, cost_history):
         """在每次迭代后调用，保存历史和绘制收敛曲线"""
-        print(f"迭代 {iteration}: 最优成本 = {cost_history[-1]:.6e}")
+        # print(f"迭代 {iteration}: 最优成本 = {cost_history[-1]:.6e}")
         
         # 保存该迭代的新评估记录（仅保存新增部分）
         current_count = len(objective_func.eval_history)
@@ -419,7 +436,7 @@ def run_pso_optimization(config: dict):
             df = pd.DataFrame(df_data)
             history_file = objective_func.work_dir / f"pso_evaluation_history_iter_{iteration:04d}.csv"
             df.to_csv(history_file, index=False)
-            print(f"  已保存 {len(new_records)} 条新评估记录: {history_file.name}")
+            # print(f"  已保存 {len(new_records)} 条新评估记录: {history_file.name}")
             
             # 更新已保存计数
             last_saved_count[0] = current_count
@@ -437,7 +454,7 @@ def run_pso_optimization(config: dict):
         plot_file = objective_func.work_dir / f"pso_convergence_iter_{iteration:04d}.png"
         plt.savefig(plot_file, dpi=300)
         plt.close(fig)
-        print(f"  已保存收敛曲线: {plot_file.name}")
+        # print(f"  已保存收敛曲线: {plot_file.name}")
 
     # Perform optimization with callback
     start_time = time.time()
@@ -464,7 +481,6 @@ def run_pso_optimization(config: dict):
         print(f"  {name} = {pos[i]:.6f}")
 
     print(f"Optimization completed in {elapsed_time:.2f} seconds.")
-
     
     # 保存最终历史
     final_history_file = "pso_evaluation_history_final.csv"
