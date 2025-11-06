@@ -1,5 +1,5 @@
-tmax = 11.55
-uy_max = -6.603e-3
+tmax = 10
+uy_max = -0.5
 E = 193e3
 p0 = 400
 p1 = 800
@@ -21,7 +21,7 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
 [Mesh]
     [simple_mesh]
         type = FileMeshGenerator
-        file = ./mesh_files/316L_2d_particle_contact_structural_ref_1.msh
+        file = ./mesh_files/2d_particle_radius_1mm_contact_structural_ref_1.msh
     []
     uniform_refine = 0
     allow_renumbering = false
@@ -184,9 +184,9 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
     nl_max_its = 20
     dt = 0.1
     dtmin = 1e-5
-    dtmax = 0.25
+    dtmax = 0.4
     end_time = ${tmax}
-    nl_rel_tol = 1e-8
+    nl_rel_tol = 2e-7
     nl_abs_tol = 1e-6
     l_tol = 1e-3
 
@@ -210,22 +210,22 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
     [disp]
         type = PointValue
         variable = disp_y
-        point = '0 0.0137425 0'
+        point = '0 1 0'
     []
-    [disp_um]
+    [cmpr_ratio]
         type = ParsedPostprocessor
         pp_names = 'disp'
-        expression = '2*1e3*abs(disp)' # RZ坐标系下，位移需乘以2
+        expression = 'abs(disp)' # RZ坐标系下，位移需乘以2
     []
     [force]
         type = NodalSum
         variable = saved_y
         boundary = Specimen_Bottom_Edge
     []
-    [force_mN]
+    [force_norm_MPa]
         type = ParsedPostprocessor
         pp_names = 'force'
-        expression = '1e3*abs(force)'
+        expression = 'abs(force)/3.1415926'
     []
 
     # [spec_avg_vonmises]
