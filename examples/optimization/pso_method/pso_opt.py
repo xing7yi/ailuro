@@ -170,7 +170,6 @@ class MOOSEObjectiveFunction:
                 objective = self._calculate_objective(csv_file)
                 self.success_count += 1
                 status = "✓"
-
             else:
                 print(f"✗ MOOSE simulation failed for parameters: {parameters}")
                 print(f"result.stderr:\n{result.stderr}")
@@ -300,7 +299,7 @@ class MOOSEObjectiveFunction:
             matplotlib.use('Agg')
             import matplotlib.pyplot as plt
 
-            fig, ax = plt.subplots(figsize=(6,4))
+            fig, ax = plt.subplots(figsize=(5,3.6))
             # 原始曲线
             ax.plot(x_exp_sorted, y_exp_sorted, label='Experimental', color='C0', linewidth=1)
             ax.plot(x_sim_sorted, y_sim_sorted, label='Simulation', color='C1', linewidth=1)
@@ -309,9 +308,9 @@ class MOOSEObjectiveFunction:
             ax.scatter(common_u, y_exp_on_common, marker='o', s=30, color='C0', facecolors='none', label='Interpolation Points (Exp)')
             ax.scatter(common_u, y_sim_on_common, marker='+', s=30, color='C1', label='Interpolation Points (Sim)')
 
-            ax.set_xlabel(r'Displacement ($\mu$m)')
-            ax.set_ylabel(r'Force (mN)')
-            ax.set_title(f'(RMSE={rmse:.3e})')
+            ax.set_xlabel(r'Compression ratio')
+            ax.set_ylabel(r'Equivalent Stress (MPa)')
+            ax.set_title(f'(RMSE={rmse:.3f})')
             ax.legend(loc='best')
             ax.grid(True, linestyle='--', alpha=0.4)
 
@@ -403,7 +402,7 @@ def run_pso_optimization(config: dict):
         dimensions=len(param_config['names']),
         options=options,
         bounds=bounds,
-        ftol=1e-3,
+        ftol=0.1,
         ftol_iter=10
     )
 
@@ -412,7 +411,6 @@ def run_pso_optimization(config: dict):
     
     def iteration_callback(iteration, cost_history):
         """在每次迭代后调用，保存历史和绘制收敛曲线"""
-        # print(f"迭代 {iteration}: 最优成本 = {cost_history[-1]:.6e}")
         
         # 保存该迭代的新评估记录（仅保存新增部分）
         current_count = len(objective_func.eval_history)
@@ -434,9 +432,31 @@ def run_pso_optimization(config: dict):
                 df_data.append(row)
             
             df = pd.DataFrame(df_data)
+            
+            # 找到该迭代的最优值及对应参数
+            iter_best_idx = df['objective'].idxmin()
+            iter_best_cost = df.loc[iter_best_idx, 'objective']
+            iter_best_params = [df.loc[iter_best_idx, name] for name in objective_func.param_names]
+            
+            # 从全局历史中找到全局最优值对应的参数
+            df_all_history = pd.DataFrame([
+                {'objective': rec['objective'], **{name: rec['parameters'][i] 
+                 for i, name in enumerate(objective_func.param_names)}}
+                for rec in objective_func.eval_history
+            ])
+            global_best_idx = df_all_history['objective'].idxmin()
+            global_best_cost = df_all_history.loc[global_best_idx, 'objective']
+            global_best_params = [df_all_history.loc[global_best_idx, name] for name in objective_func.param_names]
+            
             history_file = objective_func.work_dir / f"pso_evaluation_history_iter_{iteration:04d}.csv"
             df.to_csv(history_file, index=False)
-            # print(f"  已保存 {len(new_records)} 条新评估记录: {history_file.name}")
+            
+            # 打印该迭代的统计信息
+            print(f"迭代 {iteration}:")
+            print(f"  全局最优 = {global_best_cost:.6e}")
+            print(f"  全局最优参数: {', '.join([f'{name}={val:.2f}' for name, val in zip(objective_func.param_names, global_best_params)])}")
+            print(f"  本迭代最优 = {iter_best_cost:.6e}")
+            print(f"  本迭代最优参数: {', '.join([f'{name}={val:.2f}' for name, val in zip(objective_func.param_names, iter_best_params)])}")
             
             # 更新已保存计数
             last_saved_count[0] = current_count
@@ -459,17 +479,108 @@ def run_pso_optimization(config: dict):
     # Perform optimization with callback
     start_time = time.time()
     
-    # 手动迭代循环以便在每次迭代后调用回调
-    for i in range(max_iters):
-        # 创建包装函数，传递iteration信息
-        def objective_with_iteration(positions):
-            return objective_func(positions, iteration=i+1)
-        
-        optimizer.optimize(objective_with_iteration, iters=1)
-        iteration_callback(i + 1, optimizer.cost_history)
+    # 使用自定义优化循环，手动控制 PSO 迭代过程
+    # 初始化粒子群（第一次迭代）
+    optimizer.swarm.position = np.random.uniform(
+        low=lower_bounds, 
+        high=upper_bounds, 
+        size=(n_particles, len(param_config['names']))
+    )
+    velocity_factor = 0.4
+    optimizer.swarm.velocity = np.random.uniform(
+        low=-velocity_factor*np.abs(upper_bounds - lower_bounds),
+        high=velocity_factor*np.abs(upper_bounds - lower_bounds),
+        size=(n_particles, len(param_config['names']))
+    )
+    optimizer.swarm.pbest_pos = optimizer.swarm.position.copy()
+    optimizer.swarm.pbest_cost = np.full(n_particles, np.inf)
+    optimizer.swarm.best_pos = None
+    optimizer.swarm.best_cost = np.inf
     
-    cost = optimizer.cost_history[-1]
-    pos = optimizer.swarm.best_pos  # 修正：使用 swarm.best_pos 获取全局最优位置
+    # 手动迭代
+    for i in range(max_iters):
+        # 评估当前位置
+        costs = objective_func(optimizer.swarm.position, iteration=i+1)
+        
+        # 更新个体最优
+        better_mask = costs < optimizer.swarm.pbest_cost
+        optimizer.swarm.pbest_cost[better_mask] = costs[better_mask]
+        optimizer.swarm.pbest_pos[better_mask] = optimizer.swarm.position[better_mask]
+        
+        # 更新全局最优
+        min_cost_idx = np.argmin(costs)
+        if costs[min_cost_idx] < optimizer.swarm.best_cost:
+            optimizer.swarm.best_cost = costs[min_cost_idx]
+            optimizer.swarm.best_pos = optimizer.swarm.position[min_cost_idx].copy()
+        
+        # 更新 cost_history
+        if not hasattr(optimizer, 'cost_history'):
+            optimizer.cost_history = []
+        optimizer.cost_history.append(optimizer.swarm.best_cost)
+        
+        # 调用回调函数
+        iteration_callback(i + 1, optimizer.cost_history)
+        
+        pso_conv_threshold = 0.1
+        pso_conv_window = 35
+
+        # 检查收敛
+        if len(optimizer.cost_history) >= pso_conv_window:
+            recent_costs = optimizer.cost_history[-pso_conv_window:]
+            if max(recent_costs) - min(recent_costs) < pso_conv_threshold:  # ftol
+                print(f"\n收敛于迭代 {i+1}: 最近{pso_conv_window}次迭代成本变化 < {pso_conv_threshold}")
+                break
+        
+        # 更新速度和位置（PSO 公式）
+        if i < max_iters - 1:  # 最后一次迭代不需要更新
+            # 动态惯性权重：线性递减 w = 0.9 - (0.9-0.2) * iter/max_iter
+            w_max = 0.9
+            w_min = 0.2
+            w_dynamic = w_max - (w_max - w_min) * (i / max_iters)
+            
+            # 认知分量
+            cognitive = (options['c1'] * np.random.random(optimizer.swarm.position.shape) * 
+                        (optimizer.swarm.pbest_pos - optimizer.swarm.position))
+            
+            # 社会分量
+            social = (options['c2'] * np.random.random(optimizer.swarm.position.shape) * 
+                     (optimizer.swarm.best_pos - optimizer.swarm.position))
+            
+            # 更新速度（使用动态惯性权重）
+            optimizer.swarm.velocity = (w_dynamic * optimizer.swarm.velocity + 
+                                       cognitive + social)
+            
+            # 更新位置
+            new_position = optimizer.swarm.position + optimizer.swarm.velocity
+            
+            # 边界处理：反弹法（Reflecting）
+            # 粒子撞到边界时，位置反弹回边界内，速度反向
+            for dim in range(len(lower_bounds)):
+                # 检查下边界
+                lower_violation = new_position[:, dim] < lower_bounds[dim]
+                if np.any(lower_violation):
+                    # 位置反弹：超出部分镜像回边界内
+                    new_position[lower_violation, dim] = (
+                        2 * lower_bounds[dim] - new_position[lower_violation, dim]
+                    )
+                    # 速度反向
+                    optimizer.swarm.velocity[lower_violation, dim] *= -0.75
+                
+                # 检查上边界
+                upper_violation = new_position[:, dim] > upper_bounds[dim]
+                if np.any(upper_violation):
+                    # 位置反弹：超出部分镜像回边界内
+                    new_position[upper_violation, dim] = (
+                        2 * upper_bounds[dim] - new_position[upper_violation, dim]
+                    )
+                    # 速度反向
+                    optimizer.swarm.velocity[upper_violation, dim] *= -0.75
+            
+            # 最终裁剪（防止反弹后仍超出边界）
+            optimizer.swarm.position = np.clip(new_position, lower_bounds, upper_bounds)
+    
+    cost = optimizer.swarm.best_cost
+    pos = optimizer.swarm.best_pos
     
     elapsed_time = time.time() - start_time
 
