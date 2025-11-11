@@ -22,7 +22,8 @@
 *.e.*
 *.e-s*
 *.csv
-*.csv.*      
+*.csv.*
+*_used.yaml
 
 # Python cache
 *.pyc

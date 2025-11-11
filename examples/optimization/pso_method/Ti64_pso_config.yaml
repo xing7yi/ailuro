@@ -1,0 +1,61 @@
+# PSO优化器配置文件
+# 用于 pso_moose_optimizer.py
+
+# MOOSE可执行文件和输入文件
+executable: "ailuro-opt"
+work_dir: "2d_particle_316L_CL_0004_D27.485"
+input_file: "particle_friction_plastic_voce.i"
+# 输出文件变量
+filebase_param: "out_name" # MOOSE输入文件中用于指定输出文件名的变量
+output_dir: "results"      # 输出文件存放目录
+#
+max_disp_param: "uy_max"  # MOOSE输入文件中用于指定压缩比的变量
+# 目标函数计算参数
+objective_csv: "experiment_csv/normalized/316L_D27.485_CL_0004_norm.csv"  # 实验数据（位移-力）CSV文件路径
+result_col_x: "cmpr_ratio"     # 用于计算目标函数的x列名
+result_col_y: "force_norm_MPa" # 用于计算目标函数的y列名
+
+# 并行计算配置
+use_parallel: true   # 是否启用并行计算
+max_workers: 28      # 最大并行进程数（建议不超过 CPU 核心数的一半）
+n_interp_points: 10  # 插值点数量
+timeout: 180  # 单次模拟超时时间（秒）
+
+
+# 优化参数配置
+parameters:
+  names: ["p0", "p1", "p2", "p3"]  # 参数名称（对应输入文件中的变量）
+  paths:  # MOOSE中的参数路径（用于命令行覆盖，使用顶层变量）
+    - "p0"  # yield_stress
+    - "p1"  # hardening_constant
+    - "p2"  # q
+    - "p3"  # b
+  descriptions: ["yield_stress", "hardening_constant", "Q ", "b"]
+  # lower_bounds: [10, 0, 0, 0]      # 参数下界
+  # upper_bounds: [1200, 2000, 500, 100]  # 参数上界
+  lower_bounds: [10,  0,    0,  0]      # 参数下界
+  upper_bounds: [1200, 2000, 600, 200]  # 参数上界
+
+# PSO算法配置
+pso:
+  n_particles: 28           # 粒子数量
+  max_iterations: 250        # 最大迭代次数
+  inertia_weight: 0.9       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
+  cognitive_param: 1.5      # 认知参数 c1 (通常1.5-2.0)
+  social_param: 1.5         # 社会参数 c2 (通常1.5-2.0)
+
+# 说明:
+# - n_particles: 建议 10-30, 参数越多需要越多粒子
+# - max_iterations: 建议 30-100, 取决于问题复杂度
+# - inertia_weight: 0.9 适合前期探索, 0.4 适合后期收敛
+#   可以使用动态调整: w = 0.9 - (0.9-0.4) * iter/max_iter
+# - cognitive_param + social_param ≈ 4.0 是常用配置
+#
+# 总评估次数 ≈ n_particles × (max_iterations + 1)
+# 对于本例: 20 × 51 = 1020 次评估
+# 假设每次30秒: 总时间 ≈ 8.5 小时
+#
+# 建议先用小规模测试:
+#   n_particles: 5
+#   max_iterations: 10
+#   总评估: 55次, 约30分钟

@@ -27,16 +27,24 @@ public:
 
 protected:
 
+  virtual void computeStressInitialize(
+      const GenericReal<is_ad> & effective_trial_stress,
+      const GenericRankFourTensor<is_ad> & elasticity_tensor) override;
+
   virtual GenericReal<is_ad> computeHardeningValue(const GenericReal<is_ad> & scalar) override;
 
   ///@{ Voce law hardening coefficients
   const Real & _q;
-  const Real & _b;
+  const Real & _b;  // Reference from input parameter (controllable)
+  Real _b_value;    // Working copy for computed default value
+  GenericReal<is_ad> _youngs_modulus;  // Computed from elasticity tensor
   ///@}
 
   using IsotropicLinearHardeningStressUpdateTempl<is_ad>::_hardening_slope;
   using IsotropicLinearHardeningStressUpdateTempl<is_ad>::_hardening_variable;
   using IsotropicLinearHardeningStressUpdateTempl<is_ad>::_hardening_variable_old;
+
+  GenericReal<is_ad> getIsotropicLameLambda(const GenericRankFourTensor<is_ad> & elasticity_tensor);
 };
 
 typedef IsotropicVoceLawHardeningStressUpdateTempl<false> IsotropicVoceLawHardeningStressUpdate;
