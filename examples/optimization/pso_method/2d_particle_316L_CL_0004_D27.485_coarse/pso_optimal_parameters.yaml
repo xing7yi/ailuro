@@ -1,0 +1,13 @@
+optimal_cost: 6.9740138451536335
+optimal_eval_id: 405
+optimal_parameters:
+  p0: 231.0284624431296
+  p1: 803.1232754393804
+  p2: 427.4898002896517
+  p3: 20.489090559843092
+statistics:
+  average_time_seconds: 1.3352430019793766
+  failed: 0
+  successful: 1792
+  total_evaluations: 1792
+  total_time_minutes: 39.87925765911738
