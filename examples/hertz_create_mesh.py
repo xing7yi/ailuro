@@ -654,4 +654,5 @@ if __name__ == "__main__":
     # create_hertz_model_half_space("hertz_contact_half_space.msh",refine_level=1)
     # create_hertz_model_contact_area_refine("hertz_contact_refine.msh")
     # create_hertz_model_structural_mesh("hertz_contact_structural_ref_2.msh",2)    #bottom edge div num : 30*1
-    create_hertz_model_structural_mesh("316L_2d_particle_contact_structural_ref_1.msh",1)    #bottom edge div num : 30*1
+    # create_hertz_model_structural_mesh("316L_2d_particle_contact_structural_ref_1.msh",1)    #bottom edge div num : 30*1
+    create_hertz_model_structural_mesh("2d_particle_radius_1mm_contact_structural_ref_5.msh",5)    #bottom edge div num : 30*2
