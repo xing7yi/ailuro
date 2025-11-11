@@ -34,7 +34,7 @@ parameters:
   # lower_bounds: [10, 0, 0, 0]      # 参数下界
   # upper_bounds: [1200, 2000, 500, 100]  # 参数上界
   lower_bounds: [10,  0,    0,  0]      # 参数下界
-  upper_bounds: [600, 2000, 600, 50]  # 参数上界
+  upper_bounds: [1200, 2000, 600, 200]  # 参数上界
 
 # PSO算法配置
 pso:
