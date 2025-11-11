@@ -49,4 +49,5 @@ private:
   void closePythonProcess();
 
   void updatePlotData(const std::vector<Real> & x_data, const std::vector<Real> & y_data);
+
 };
