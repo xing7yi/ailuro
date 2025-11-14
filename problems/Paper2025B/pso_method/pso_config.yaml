@@ -1,27 +1,50 @@
 # PSO优化器配置文件
 # 用于 pso_moose_optimizer.py
 
-# MOOSE可执行文件和输入文件
-executable: "ailuro-opt"
-work_dir: "2d_particle"
-input_file: "particle_friction_plastic_voce.i"
-mesh_file: "mesh_files/2d_particle_radius_1mm_contact_structural_ref_0.msh"
-# 输出文件变量
-filebase_param: "out_name" # MOOSE输入文件中用于指定输出文件名的变量
-output_dir: "results"      # 输出文件存放目录
-#
-max_disp_param: "uy_max"  # MOOSE输入文件中用于指定压缩比的变量
-# 目标函数计算参数
-objective_csv: "obj_csv/E100_p0_600_p1_200_p2_300_p3_50.csv"
-result_col_x: "cmpr_ratio"     # 用于计算目标函数的x列名
-result_col_y: "force_norm_MPa" # 用于计算目标函数的y列名
 
+work_dir: "rastrigin_test" #"2d_particle"
+
+# 测试模式开关（调试用）
+test_mode: true  # true: 使用测试函数（快速调试）, false: 运行MOOSE仿真
+test_function_type: 'rastrigin'  # 'default': test_function_2d (可能产生负值), 'rastrigin': rastrigin_2d (非负值，全局最优在中心)
 # 并行计算配置
-use_parallel: true   # 是否启用并行计算
-max_workers: 4      # 最大并行进程数（建议不超过 CPU 核心数的一半）
-n_interp_points: 10  # 插值点数量
-timeout: 180  # 单次模拟超时时间（秒）
+# 注意：测试模式下建议禁用并行，因为测试函数计算极快，进程池开销反而更慢
+use_parallel: false  # 是否启用并行计算（测试模式建议false，MOOSE仿真建议true）
 
+# 可视化配置
+realtime_gif: false  # true: 每次迭代实时更新GIF, false: 仅在优化结束时生成GIF
+save_plot_interval: 10  # 保存图片和CSV的频率（每N次迭代保存一次，0表示每次都保存）
+
+# 缓存配置（加速重复/邻近参数评估）
+# 注意：测试模式下建议禁用缓存，因为测试函数计算极快，缓存查询反而更慢
+cache:
+  enabled: false                   # 是否启用缓存系统（测试模式建议false，MOOSE仿真建议true）
+  file: "simulation_cache.db"      # 缓存数据库文件名
+  exact_decimals: 3                # 精确匹配的小数位数（越小越宽松）
+  near_tolerance: 0.005             # 最近邻容差（归一化参数空间，0.01 = 1%）
+  interpolation_method: "nearest"  # 插值方法: 'nearest'（最近邻）, 'weighted'（加权平均）, 'none'（禁用邻近匹配）
+  max_neighbors: 5                 # 用于插值的最大邻居数
+  version: "1.0"                   # 缓存版本（更改后重建缓存）
+
+# MOOSE可执行文件和输入文件
+moose:
+  executable: "ailuro-opt"
+  
+  input_file: "particle_friction_plastic_voce.i"
+  mesh_file: "mesh_files/2d_particle_radius_1mm_contact_structural_ref_0.msh"
+  # 输出文件变量
+  filebase_param: "out_name" # MOOSE输入文件中用于指定输出文件名的变量
+  output_dir: "results"      # 输出文件存放目录
+  #
+  max_disp_param: "uy_max"  # MOOSE输入文件中用于指定压缩比的变量
+  # 目标函数计算参数
+  objective_csv: "obj_csv/E100_p0_600_p1_200_p2_300_p3_50.csv"
+  result_col_x: "cmpr_ratio"     # 用于计算目标函数的x列名
+  result_col_y: "force_norm_MPa" # 用于计算目标函数的y列名
+  n_interp_points: 10  # 插值点数量
+
+  max_workers: 25      # 最大并行进程数（建议不超过 CPU 核心数的一半）
+  timeout: 180  # 单次模拟超时时间（秒）
 
 # 优化参数配置 4个参数
 # parameters:
@@ -50,14 +73,44 @@ parameters:
   upper_bounds: [2000, 4000]  # 参数上界
 
 # PSO算法配置
-pso:
-  n_particles: 4           # 粒子数量
-  max_iterations: 250        # 最大迭代次数
-  inertia_weight: 0.9       # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
-  cognitive_param: 1.5      # 认知参数 c1 (通常1.5-2.0)
-  social_param: 1.5         # 社会参数 c2 (通常1.5-2.0)
+pso: 
+  n_particles: 25              # 粒子数量 (测试模式建议10-20)
+  max_iterations: 500          # 最大迭代次数 (测试模式建议10-20)
+  inertia_weight: 0.9          # 惯性权重 w (0.4-0.9, 越大全局搜索能力越强)
+  cognitive_param: 1.5         # 认知参数 c1 (通常1.5-2.0)
+  social_param: 1.5            # 社会参数 c2 (通常1.5-2.0)
+  convergence_threshold: 5  # 收敛阈值（可选）
+  convergence_window: 30       # 收敛窗口大小（可选）
+
+
 
 # 说明:
+# - test_mode: true 时使用 test_function_2d (Rosenbrock函数变体)
+#   * 使用归一化参数 p0, p1 ∈ [0,1]（根据lower_bounds和upper_bounds自动归一化）
+#   * 最优解约在归一化空间 (0.5, 0.5) 附近，对应实际参数空间的中心
+#   * 快速调试PSO算法、可视化、收敛性等，无需运行MOOSE
+# - test_mode: false 时运行完整的MOOSE仿真
+#
+# - realtime_gif: 控制GIF动画生成方式
+#   * true: 每次迭代实时更新GIF（占用更多时间和IO，适合实时监控）
+#   * false: 仅在优化结束后生成一次GIF（更快，推荐用于长时间优化）
+#
+# - cache: 缓存系统配置（重要！可显著加速优化）
+#   * enabled: 启用后自动缓存所有成功的评估结果
+#   * exact_decimals: 精确匹配小数位（4位意味着参数四舍五入到0.0001）
+#   * near_tolerance: 邻近匹配容差（归一化空间）
+#     - 0.01 表示参数变化 1% 以内视为邻近
+#     - 对于参数范围 [0, 1000]，0.01 对应 10 的差异
+#   * interpolation_method:
+#     - 'nearest': 直接使用最近邻的结果（保守，准确）
+#     - 'weighted': 使用多个邻居加权平均（更激进，可能不准确）
+#     - 'none': 禁用邻近匹配，仅精确匹配
+#   * 缓存会自动处理：
+#     - 粒子重复访问相同位置（精确命中）
+#     - 粒子在边界反弹后回到邻近位置（邻近命中）
+#     - 多次运行之间共享评估结果（持久化）
+#
+# PSO参数说明:
 # - n_particles: 建议 10-30, 参数越多需要越多粒子
 # - max_iterations: 建议 30-100, 取决于问题复杂度
 # - inertia_weight: 0.9 适合前期探索, 0.4 适合后期收敛
