@@ -10,6 +10,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+# 增加图形数量警告阈值（PSO 优化可能创建很多图形）
+plt.rcParams['figure.max_open_warning'] = 100
+
 @dataclass
 class MOOSEConfig:
     """MOOSE 优化配置数据类"""
@@ -164,6 +167,7 @@ class MOOSEObjectiveFunction:
             rmse = np.sqrt(np.mean((sim_y_interp - ref_y_interp) ** 2))
 
             # 绘图：比较实验与仿真力-位移曲线，并标注用于插值的共同位移点
+            fig = None
             try:
                 fig, ax = plt.subplots(figsize=(5,3.6))
                 # 原始曲线
@@ -185,10 +189,13 @@ class MOOSEObjectiveFunction:
                 plot_path.parent.mkdir(parents=True, exist_ok=True)
                 fig.tight_layout()
                 fig.savefig(plot_path, dpi=300)
-                plt.close(fig)
                 # print(f"   已保存对比图: {plot_path}")
             except Exception as e:
                 print(f"   绘图失败: {e}")
+            finally:
+                # 确保图形被关闭，即使发生异常
+                if fig is not None:
+                    plt.close(fig)
 
             return rmse
         except Exception as e:
