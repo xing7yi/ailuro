@@ -4,6 +4,8 @@
 
 # MOOSE executables
 *-opt
+
+!simu-opt
 *-dbg
 *-devel
 
