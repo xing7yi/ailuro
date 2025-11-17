@@ -250,17 +250,17 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
     #     pp_names = 'contact_pressure_integral contact_active_area'
     #     expression = 'contact_pressure_integral / contact_active_area'
     # []
-    [plot_force_disp]
-        type = PlotPostprocessor
-        x_variable = cmpr_ratio
-        y_variable = force_norm_MPa
-        plot_title = ''
-        x_label = 'Compression ratio'
-        y_label = 'Equivalent Stress (MPa)'
-        real_time_plot = true
-        plot_frequency = 1
-        style = 'b-'
-    []
+    # [plot_force_disp]
+    #     type = PlotPostprocessor
+    #     x_variable = cmpr_ratio
+    #     y_variable = force_norm_MPa
+    #     plot_title = ''
+    #     x_label = 'Compression ratio'
+    #     y_label = 'Equivalent Stress (MPa)'
+    #     real_time_plot = true
+    #     plot_frequency = 1
+    #     style = 'b-'
+    # []
 []
 
 # [Times]
