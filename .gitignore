@@ -27,6 +27,10 @@
 *.csv.*
 *_used.yaml
 
+# PSO output files
+*.gif
+*result.yaml
+
 # Python cache
 *.pyc
 __pycache__/
