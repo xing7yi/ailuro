@@ -3,8 +3,8 @@ uy_max = -0.7
 E = 100e3
 p0 = 600
 p1 = 200
-p2 = 0
-p3 = 0
+p2 = 300
+p3 = 50
 mesh_file = ./mesh_files/2d_particle_radius_1mm_contact_structural_ref_5.msh
 out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
 
@@ -43,8 +43,32 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
 
 
 [Physics/SolidMechanics/QuasiStatic]
-    [all]
-        block = 'Specimen_Body Indenter_Body'
+    # [all]
+    #     block = 'Specimen_Body Indenter_Body'
+    #     add_variables = true
+    #     strain = FINITE
+    #     extra_vector_tags = 'ref'
+    #     generate_output = '
+    #       strain_xx strain_xy strain_xz
+    #       strain_yx strain_yy strain_yz
+    #       strain_zx strain_zy strain_zz
+    #       stress_xx stress_xy stress_xz
+    #       stress_yx stress_yy stress_yz
+    #       stress_zx stress_zy stress_zz
+    #       elastic_strain_xx elastic_strain_xy elastic_strain_xz 
+    #       elastic_strain_yx elastic_strain_yy elastic_strain_yz 
+    #       elastic_strain_zx elastic_strain_zy elastic_strain_zz
+    #       plastic_strain_xx plastic_strain_xy plastic_strain_xz 
+    #       plastic_strain_yx plastic_strain_yy plastic_strain_yz 
+    #       plastic_strain_zx plastic_strain_zy plastic_strain_zz
+    #       vonmises_stress'
+    #     save_in = 'saved_x saved_y'
+    #     use_automatic_differentiation = true
+    #     use_finite_deform_jacobian = true
+    # []
+
+    [ind]
+        block = 'Indenter_Body'
         add_variables = true
         strain = FINITE
         extra_vector_tags = 'ref'
@@ -60,6 +84,30 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
         use_automatic_differentiation = true
         use_finite_deform_jacobian = true
     []
+    [spec]
+        block = 'Specimen_Body'
+        add_variables = true
+        strain = FINITE
+        extra_vector_tags = 'ref'
+        generate_output = '
+          strain_xx strain_xy strain_xz
+          strain_yx strain_yy strain_yz
+          strain_zx strain_zy strain_zz
+          stress_xx stress_xy stress_xz
+          stress_yx stress_yy stress_yz
+          stress_zx stress_zy stress_zz
+          elastic_strain_xx elastic_strain_xy elastic_strain_xz 
+          elastic_strain_yx elastic_strain_yy elastic_strain_yz 
+          elastic_strain_zx elastic_strain_zy elastic_strain_zz
+          plastic_strain_xx plastic_strain_xy plastic_strain_xz 
+          plastic_strain_yx plastic_strain_yy plastic_strain_yz 
+          plastic_strain_zx plastic_strain_zy plastic_strain_zz
+          vonmises_stress'
+        save_in = 'saved_x saved_y'
+        use_automatic_differentiation = true
+        use_finite_deform_jacobian = true
+    []
+
 []
 
 [BCs]
@@ -175,7 +223,7 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
     nl_max_its = 20
     dt = 0.1
     dtmin = 1e-5
-    dtmax = 0.4
+    dtmax = 0.25
     end_time = ${tmax}
     nl_rel_tol = 2e-7
     nl_abs_tol = 1e-6
@@ -280,9 +328,9 @@ out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
     #     sync_times_object = csv_times
     #     execute_reporters_on = 'NONE'
     # []
-    # [out]
-    #     type = Exodus
-    #     elemental_as_nodal = true
-    #     time_step_interval = 1
-    # []
+    [out]
+        type = Exodus
+        elemental_as_nodal = true
+        time_step_interval = 1
+    []
 []
