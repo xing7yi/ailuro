@@ -5,7 +5,7 @@ p0 = 600
 p1 = 200
 p2 = 0
 p3 = 0
-mesh_file = ./mesh_files/2d_particle_radius_1mm_contact_structural_ref_0.msh
+mesh_file = 2d_particle_radius_1mm_contact_structural_ref_0.msh
 out_name = ./results/p0_${p0}_p1_${p1}_p2_${p2}_p3_${p3}
 
 [GlobalParams]
