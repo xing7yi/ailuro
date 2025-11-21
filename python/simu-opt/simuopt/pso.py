@@ -2,7 +2,7 @@
 import numpy as np
 import time
 from dataclasses import dataclass, field
-from .tools import func_transformer
+from .tools import func_transformer, get_lhs_matrix
 from pathlib import Path
 import re
 
@@ -21,6 +21,9 @@ class PSOConfig:
     cmode: str = 'avg_cost'  # convergence mode: 'best_cost' or 'avg_cost'
     cthreshold: float = 1  # convergence threshold
     cwindow: int = 20  # convergence window size
+
+    #粒子位置初始化方法
+    position_init_method: str = 'random'  # 可选值：'random', 'lhs'
 
     def __post_init__(self):
         # 自动转换列表为 numpy 数组
@@ -42,6 +45,7 @@ class PSOConfig:
             cmode=config_dict.get('cmode', 'avg_cost'),
             cthreshold=config_dict.get('cthreshold', 1),
             cwindow=config_dict.get('cwindow', 20),
+            position_init_method=config_dict.get('position_init_method', 'random')
         )
     
 @dataclass
@@ -198,8 +202,18 @@ class PSOOptimizer():
         self.cfg = config
         self.func = func_transformer(func)
 
+        # 初始化粒子群
+        init_pos = None
+        print ("初始化粒子位置方法:", self.cfg.position_init_method)
+        match self.cfg.position_init_method:
+            case 'random':
+                init_pos = np.random.uniform(self.cfg.lb, self.cfg.ub, size=(self.cfg.n_particles, self.cfg.n_dims))
+            case 'lhs':
+                init_pos = get_lhs_matrix(self.cfg.n_particles, self.cfg.n_dims, self.cfg.lb, self.cfg.ub)
+            case _:
+                raise ValueError(f"未知的粒子位置初始化方法: {self.cfg.position_init_method}")
+
         v_mag = 0.4 * np.abs(self.cfg.ub - self.cfg.lb)
-        init_pos = np.random.uniform(self.cfg.lb, self.cfg.ub, size=(self.cfg.n_particles, self.cfg.n_dims))
         init_vel = np.random.uniform(-v_mag, v_mag, size=(self.cfg.n_particles, self.cfg.n_dims))
         self.swarm = ParticleSwarm(self.cfg, init_pos, init_vel)
 
@@ -216,13 +230,17 @@ class PSOOptimizer():
         if self.output_dir is not None:
             self.output_dir = Path(self.output_dir)
             self.output_dir.mkdir(parents=True, exist_ok=True)
+        # 清空output目录和子目录中的文件
+        for file in self.output_dir.glob("**/*"):
+            if file.is_file():
+                file.unlink()
 
         self.particle_history_file = self.output_dir / "pso_particle_history.csv"
-        self.iter_history_file = self.output_dir / "pso_iteration_history.log"
+        self.iteration_history_file = self.output_dir / "pso_iteration_history.log"
 
         # 清空文件内容,但不删除文件
-        if self.iter_history_file.exists():
-            with open(self.iter_history_file, 'w') as f:
+        if self.iteration_history_file.exists():
+            with open(self.iteration_history_file, 'w') as f:
                 pass
 
         if self.particle_history_file.exists():
@@ -312,8 +330,8 @@ class PSOOptimizer():
 
         # 输出到文件
 
-        if self.iter_history_file:
-            with open(self.iter_history_file, 'a') as f:
+        if self.iteration_history_file:
+            with open(self.iteration_history_file, 'a') as f:
                 f.write(data_line + '\n')
 
         return data_line
@@ -355,7 +373,7 @@ class PSOOptimizer():
                 self.swarm.position[:, dim_idx].tolist()
             )
 
-    def output_particle_history(self, iter_start, iter_end):
+    def output_particle_history(self, iter_num):
         """
         输出粒子历史到文件（增量保存）
         
@@ -367,6 +385,9 @@ class PSOOptimizer():
         import pandas as pd
 
         out_file = self.particle_history_file
+
+        iter_start = self.last_saved_iter + 1
+        iter_end = iter_num        
 
         # 计算在 particle_history 中的索引范围
         start_idx = iter_start * self.cfg.n_particles
@@ -383,6 +404,8 @@ class PSOOptimizer():
         mode = 'w' if iter_start == 0 else 'a'
         header = iter_start == 0
         df_new.to_csv(out_file, mode=mode, header=header, index=False)
+
+        self.last_saved_iter = iter_num        
 
     def check_convergence(self, mode, threshold, window):
         """
@@ -406,8 +429,7 @@ class PSOOptimizer():
             return False
         # 从 iteration_history 提取最近的平均成本
         recent_costs = history[-window:]
-        max_avg = max(recent_costs)
-        min_avg = min(recent_costs)
+
         mean_avg = sum(recent_costs) / window
 
         if mean_avg < threshold:
@@ -441,9 +463,9 @@ class PSOOptimizer():
                 printed_header = True
 
             # 检查收敛
-            is_converged = self.check_convergence(self.cfg.cmode, 
-                                                  self.cfg.cthreshold,
-                                                  self.cfg.cwindow)
+            is_converged = self.check_convergence(
+                self.cfg.cmode, self.cfg.cthreshold,self.cfg.cwindow
+            )
 
             # 记录历史
             self.record_iteration_history(iter_num, current_time)
@@ -451,15 +473,12 @@ class PSOOptimizer():
             # 记录粒子的详细信息
             self.record_particle_history(iter_num)
 
-            # 增量保存粒子历史到文件
+            # 保存粒子历史到文件
             if (iter_num + 1) % self.output_interval == 0 \
                     or iter_num == self.cfg.max_iters - 1 \
                     or is_converged:
-                # 保存从上次保存位置到当前位置的数据
-                iter_start = self.last_saved_iter + 1
-                iter_end = iter_num
-                self.output_particle_history(iter_start, iter_end)
-                self.last_saved_iter = iter_num
+                self.output_particle_history(iter_num)
+
             
             # 调用回调函数
             if self.callback is not None and (iter_num % self.callback_interval == 0 

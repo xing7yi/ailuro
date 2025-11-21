@@ -1,7 +1,15 @@
 import os
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from scipy.stats import qmc
 
+def get_lhs_matrix(n_samples, n_dims, lb, ub):
+    """生成拉丁超立方采样矩阵
+    """
+    sampler = qmc.LatinHypercube(d=n_dims,scramble=False) # 不使用扰动
+    sample = sampler.random(n=n_samples)
+    scaled_sample = qmc.scale(sample, lb, ub)
+    return scaled_sample
 
 def func_transformer(func, n_processes=0):
     """Return a wrapper that adapts `func` to the PSO expected signature.

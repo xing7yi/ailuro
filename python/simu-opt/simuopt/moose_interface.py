@@ -5,14 +5,6 @@ from dataclasses import dataclass, field
 import subprocess
 import shutil
 
-# 使用非交互式后端，避免多线程环境下的 GUI 问题
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-
-# 增加图形数量警告阈值（PSO 优化可能创建很多图形）
-plt.rcParams['figure.max_open_warning'] = 100
-
 @dataclass
 class MOOSEConfig:
     """MOOSE 优化配置数据类"""
@@ -69,7 +61,7 @@ class MOOSEObjectiveFunction:
     Interface to MOOSE-based simulations for optimization.
     """
 
-    def __init__(self, config: MOOSEConfig):
+    def __init__(self, config: MOOSEConfig, callback=None):
         """初始化评估器"""
         self.cfg = config
         self.cmd = [self.cfg.executable, "-i", str(self.cfg.input_file)]
@@ -85,6 +77,8 @@ class MOOSEObjectiveFunction:
             raise FileNotFoundError(f"MOOSE input file not found: {self.cfg.input_file}")
         if not self.cfg.reference_csv.exists():
             raise FileNotFoundError(f"Reference CSV file not found: {self.cfg.reference_csv}")
+        
+        self.callback = callback
 
         print(f"  MOOSE 程序: {self.cfg.executable}")
         print(f"  输入文件: {self.cfg.input_file}")
@@ -118,8 +112,10 @@ class MOOSEObjectiveFunction:
             )
 
             if result.returncode == 0:
-                objective = self._calculate_objective(sim_csv_file)
-                status = 'success'
+                objective, plot_data = self._calculate_objective(sim_csv_file)
+                if self.callback is not None and plot_data is not None:
+                    self.callback(self, sim_csv_file, objective, plot_data)
+                status = 'success'  if np.isfinite(objective) else 'failed'
             else:
                 objective = np.inf
                 status = 'failed'
@@ -130,31 +126,38 @@ class MOOSEObjectiveFunction:
 
         return objective,status
     
-    def _calculate_objective(self,sim_csv: Path) -> float:
-        """计算目标函数值"""
+    def _calculate_objective(self,sim_csv: Path) -> tuple[float, dict]:
+        """计算目标函数值
+        
+        Returns:
+            tuple: (rmse, plot_data) where plot_data contains arrays for visualization
+        """
         # 读取 sim_csv 并与 ref_csv 比较，计算误差
         if not sim_csv.exists():
             print(f"  ✗ 仿真结果文件未找到: {sim_csv}")
-            return np.inf
+            return np.inf, None
         
         try:
             sim_data = pd.read_csv(sim_csv)
             ref_data = pd.read_csv(self.cfg.reference_csv)
 
-            # 提取数据并排序
-            sim_x, sim_y = sim_data[self.cfg.csv_col_x].values, sim_data[self.cfg.csv_col_y].values
-            ref_x, ref_y = ref_data[self.cfg.csv_col_x].values, ref_data[self.cfg.csv_col_y].values
+            # 提取数据并排序（使用局部变量，避免多线程数据竞争）
+            sim_x = sim_data[self.cfg.csv_col_x].values
+            sim_y = sim_data[self.cfg.csv_col_y].values
+            ref_x = ref_data[self.cfg.csv_col_x].values
+            ref_y = ref_data[self.cfg.csv_col_y].values
 
             # 检查数据是否为空
             if len(sim_x) == 0 or len(ref_x) == 0:
                 print(f"  ✗ 数据为空: sim={len(sim_x)}, ref={len(ref_x)}")
-                return np.inf
+                return np.inf, None
 
             sim_sorted = np.argsort(sim_x)
             ref_sorted = np.argsort(ref_x)
-
-            sim_x, sim_y = sim_x[sim_sorted], sim_y[sim_sorted]
-            ref_x, ref_y = ref_x[ref_sorted], ref_y[ref_sorted]
+            sim_x = sim_x[sim_sorted]
+            sim_y = sim_y[sim_sorted]
+            ref_x = ref_x[ref_sorted]
+            ref_y = ref_y[ref_sorted]
 
             # 插值到统一点
             xmax = min(sim_x[-1], ref_x[-1])
@@ -162,42 +165,24 @@ class MOOSEObjectiveFunction:
             common_x = np.linspace(xmin, xmax, self.cfg.n_interp_points)
             sim_y_interp = np.interp(common_x, sim_x, sim_y)
             ref_y_interp = np.interp(common_x, ref_x, ref_y)
-
+            
             # 计算均方根误差
             rmse = np.sqrt(np.mean((sim_y_interp - ref_y_interp) ** 2))
-
-            # 绘图：比较实验与仿真力-位移曲线，并标注用于插值的共同位移点
-            fig = None
-            try:
-                fig, ax = plt.subplots(figsize=(5,3.6))
-                # 原始曲线
-                ax.plot(sim_x, sim_y, label='Simulation', color='C0', linewidth=1)
-                ax.plot(ref_x, ref_y, label='Reference', color='C1', linewidth=1)
-
-                # 插值点（共同位移网格）
-                ax.scatter(common_x, sim_y_interp, marker='o', s=30, color='C0', facecolors='none', label='Interpolation Points (Sim)')
-                ax.scatter(common_x, ref_y_interp, marker='+', s=30, color='C1', label='Interpolation Points (Ref)')
-                ax.set_xlabel(r'Compression ratio')
-                ax.set_ylabel(r'Equivalent Stress (MPa)')
-                ax.set_title(f'(RMSE={rmse:.3f})')
-                ax.legend(loc='best')
-                ax.grid(True, linestyle='--', alpha=0.4)
-
-                # 保存图片到与 CSV 相同目录，文件名根据 csv_file 命名
-                plot_path = sim_csv.with_suffix('.png')
-                # 确保目录存在
-                plot_path.parent.mkdir(parents=True, exist_ok=True)
-                fig.tight_layout()
-                fig.savefig(plot_path, dpi=300)
-                # print(f"   已保存对比图: {plot_path}")
-            except Exception as e:
-                print(f"   绘图失败: {e}")
-            finally:
-                # 确保图形被关闭，即使发生异常
-                if fig is not None:
-                    plt.close(fig)
-
-            return rmse
+            
+            # 准备绘图数据（用于回调函数）
+            plot_data = {
+                'sim_x': sim_x,
+                'sim_y': sim_y,
+                'ref_x': ref_x,
+                'ref_y': ref_y,
+                'common_x': common_x,
+                'sim_y_interp': sim_y_interp,
+                'ref_y_interp': ref_y_interp
+            }
+            
+            return rmse, plot_data
         except Exception as e:
             print(f"  计算目标函数时出错: {e}")
-            return np.inf
+            import traceback
+            traceback.print_exc()
+            return np.inf, None
