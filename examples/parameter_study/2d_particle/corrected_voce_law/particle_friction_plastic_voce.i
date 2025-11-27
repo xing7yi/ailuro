@@ -1,3 +1,7 @@
+tmax = 10
+uy_max = -0.7
+E = 100e3
+
 [Controls]
     [stochastic]
         type = SamplerReceiver
@@ -98,7 +102,7 @@
         type = ADFunctionDirichletBC
         variable = disp_y
         boundary = Indenter_Top_Edge
-        function = disp_y
+        function = ${uy_max}*t/${tmax}
     []
 []
 
@@ -118,8 +122,8 @@
         friction_coefficient = 0.1
         formulation = tangential_penalty
         normalize_penalty = true
-        penalty = 1e7
-        capture_tolerance = 0.001
+        penalty = 1e4
+        # capture_tolerance = 0.001
     []
 []
 
@@ -148,7 +152,7 @@
     [elasticity_tensor_specimen]
         type = ADComputeIsotropicElasticityTensor
         block = 'Specimen_Body'
-        youngs_modulus = 1e5
+        youngs_modulus = ${E}
         poissons_ratio = 0.3
     []
     [stress_specimen]
@@ -183,10 +187,11 @@
 
     l_max_its = 60
     nl_max_its = 20
-    dt = 0.01
+    dt = 0.1
     dtmin = 1e-5
-    end_time = 1.0
-    nl_rel_tol = 1e-8
+    dtmax = 0.4
+    end_time = ${tmax}
+    nl_rel_tol = 2e-7
     nl_abs_tol = 1e-6
     l_tol = 1e-3
 
@@ -214,54 +219,60 @@
         variable = disp_y
         point = '0 1 0'
     []
-    [disp_abs]
+    [cmpr_ratio]
         type = ParsedPostprocessor
         pp_names = 'disp'
         expression = 'abs(disp)'
-    []
+    []    
     [force]
         type = NodalSum
         variable = saved_y
         boundary = Specimen_Bottom_Edge
     []
-    [spec_avg_vonmises]
-        type = ElementAverageValue
-        variable = vonmises_stress
-        block = Specimen_Body
-    []
-    [contact_pressure_integral]
-        type = SideIntegralVariablePostprocessor
-        variable = contact_pressure
-        boundary = Specimen_Top_Edge
-        use_displaced_mesh = true
-    []
-
-    [contact_pressure_max]
-        type = NodalExtremeValue
-        variable = contact_pressure
-        value_type = max
-        boundary = Specimen_Top_Edge
-    []
-
-    [contact_active_area]
-        type = SideIntegralVariablePostprocessor
-        variable = contact_active
-        boundary = Specimen_Top_Edge
-        use_displaced_mesh = true
-    []
-    [contact_pressure_avg]
+    [force_norm_MPa]
         type = ParsedPostprocessor
-        pp_names = 'contact_pressure_integral contact_active_area'
-        expression = 'contact_pressure_integral / contact_active_area'
+        pp_names = 'force'
+        expression = 'abs(force)/3.1415926'
     []
+
+    # [spec_avg_vonmises]
+    #     type = ElementAverageValue
+    #     variable = vonmises_stress
+    #     block = Specimen_Body
+    # []
+    # [contact_pressure_integral]
+    #     type = SideIntegralVariablePostprocessor
+    #     variable = contact_pressure
+    #     boundary = Specimen_Top_Edge
+    #     use_displaced_mesh = true
+    # []
+
+    # [contact_pressure_max]
+    #     type = NodalExtremeValue
+    #     variable = contact_pressure
+    #     value_type = max
+    #     boundary = Specimen_Top_Edge
+    # []
+
+    # [contact_active_area]
+    #     type = SideIntegralVariablePostprocessor
+    #     variable = contact_active
+    #     boundary = Specimen_Top_Edge
+    #     use_displaced_mesh = true
+    # []
+    # [contact_pressure_avg]
+    #     type = ParsedPostprocessor
+    #     pp_names = 'contact_pressure_integral contact_active_area'
+    #     expression = 'contact_pressure_integral / contact_active_area'
+    # []
     [fd]
         type = PlotPostprocessor
-        x_variable = disp_abs
-        y_variable = force
-        plot_title = 'Force vs Displacement'
-        x_label = 'Displacement ($\\mu m$)'
-        y_label = 'Force (N)'
-        real_time_plot = false
+        x_variable = cmpr_ratio
+        y_variable = force_norm_MPa
+        plot_title = ''
+        x_label = 'Compression ratio'
+        y_label = 'Equivalent Stress (MPa)'
+        real_time_plot = true
         plot_frequency = 1
         style = 'ro-'
     []
