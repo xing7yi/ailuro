@@ -135,6 +135,13 @@ def model_reduced_voce(epsilon: np.ndarray, E: float, sigma0: float, r0: float) 
 
     return sigma
 
+def model_poly_4p(epsilon: np.ndarray, a: float, b: float, n1: float, n2: float,) -> np.ndarray:
+    """Fourth-order polynomial model."""
+    return a * epsilon**n1 + (b) * epsilon**n2
+
+def model_poly_6p(epsilon: np.ndarray, a: float, b: float, c: float, n1: float, n2: float, n3: float) -> np.ndarray:
+    """Sixth-order polynomial model."""
+    return a * epsilon**n1 + b * epsilon**n2 + c * epsilon**n3
 
 BoundsType = Tuple[List[float], List[float]]
 
@@ -202,6 +209,20 @@ FITTING_MODELS: Dict[str, Dict[str, object]] = {
         "bounds": ([0.0, 0.0, 0.0], [np.inf, np.inf, np.inf]),
         "description": "Bilinear elastic-plastic model with linear hardening",
     },
+    "poly_4p": {
+        "name": "Polynomial Model",
+        "function": model_poly_4p,
+        "param_names": ["a", "b", "n1", "n2"],
+        "bounds": ([-np.inf, -np.inf, 0.0, 4], [np.inf, np.inf, 2, 10]),
+        "description": "σ = aεⁿ¹ + bεⁿ²",
+    },
+    "poly_6p": {
+        "name": "Polynomial Model",
+        "function": model_poly_6p,
+        "param_names": ["a", "b", "c", "n1", "n2", "n3"],
+        "bounds": ([-np.inf, -np.inf, -np.inf, 0.0, 4, 6], [np.inf, np.inf, np.inf, 2, 10, 16]),
+        "description": "σ = aεⁿ¹ + bεⁿ² + cεⁿ³",
+    },
 }
 
 
@@ -234,4 +255,6 @@ __all__ = [
     "model_user_defined",
     "model_user_defined2",
     "model_voce",
+    "model_poly_4p",
+    "model_poly_6p",
 ]

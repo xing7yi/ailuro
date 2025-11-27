@@ -38,7 +38,7 @@ def prepare_curve(
     stress = force / geometry.contact_area
 
     if curve_type == "raw":
-        return displacement, force
+        return np.abs(displacement), np.abs(force)
     if curve_type == "nominal":
         return epsilon, stress
     if curve_type == "true":

@@ -25,7 +25,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--curve-type",
         type=str,
-        default="true",
+        default="nominal",
         choices=["raw", "nominal", "true"],
         help="Type of response curve to fit",
     )
@@ -39,10 +39,10 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument( "--r2-threshold",type=float,default=0.997,help="R² threshold used together with --plot-worse (default: 0.95)",
     )
     parser.add_argument("--file-base", type=str, default=None, help="Base name of CSV files (auto-detected if omitted)")
-    parser.add_argument("--initial-height", type=float, default=1.0, help="Initial specimen height in mm")
+    parser.add_argument("--initial-height", type=float, default=1.0, help="Initial half height of specimen in mm")
     parser.add_argument("--contact-radius", type=float, default=1.0, help="Contact radius in mm")
     parser.add_argument("--min-displacement", type=float, default=0.4, help="Minimum displacement required for fitting")
-    parser.add_argument("--disp-col", type=str, default="disp_abs", help="Displacement column name")
+    parser.add_argument("--disp-col", type=str, default="disp", help="Displacement column name")
     parser.add_argument("--force-col", type=str, default="force", help="Force column name")
     return parser
 
