@@ -21,7 +21,7 @@ E = 100e3
 [Mesh]
     [simple_mesh]
         type = FileMeshGenerator
-        file = ../mesh_files/2d_particle_radius_1mm_contact_structural_ref_1.msh
+        file = ../mesh_files/2d_particle_radius_1mm_contact_structural_ref_2.msh
     []
     uniform_refine = 0
     allow_renumbering = false

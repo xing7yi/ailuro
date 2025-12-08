@@ -4,13 +4,13 @@
 [Distributions]
   [ys]
     type = Uniform
-    lower_bound = 50
+    lower_bound = 10
     upper_bound = 1500
   []
   [tm]
     type = Uniform
     lower_bound = 0
-    upper_bound = 2000
+    upper_bound = 4000
   []
   [q]
     type = Uniform
@@ -27,7 +27,7 @@
 [Samplers]
   [hypercube]
     type = LatinHypercube
-    num_rows = 80
+    num_rows = 7200
     distributions = 'ys tm q b'
   []
 []
