@@ -34,7 +34,7 @@ IsotropicLinearHardeningStressUpdateTempl<is_ad>::validParams()
       "plastic_prepend",
       "",
       "String that is prepended to the plastic_strain Material Property",
-      "This has been replaced by the 'base_name' parameter");  
+      "This has been replaced by the 'base_name' parameter");
   params.set<std::string>("effective_inelastic_strain_name") = "effective_plastic_strain";
   params.declareControllable("yield_stress hardening_constant");
   return params;
@@ -194,7 +194,8 @@ void
 IsotropicLinearHardeningStressUpdateTempl<is_ad>::computeYieldStress(
     const GenericRankFourTensor<is_ad> & /*elasticity_tensor*/)
 {
-
+  // Base class: _yield_stress is already set from the "yield_stress" input parameter.
+  // Derived classes (e.g. Swift) override this to compute _yield_stress dynamically.
 }
 
 template class IsotropicLinearHardeningStressUpdateTempl<false>;
