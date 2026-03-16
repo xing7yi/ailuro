@@ -68,7 +68,7 @@ protected:
   /// a string to prepend to the plastic strain Material Property name
   const std::string _plastic_prepend;
 
-  GenericReal<is_ad> _yield_stress;  ///< Mutable: can be overridden by computeYieldStress() in subclasses
+  const Real & _yield_stress;  ///< Mutable: can be overridden by computeYieldStress() in subclasses
   const Real & _hardening_constant;
 
   GenericReal<is_ad> _yield_condition;

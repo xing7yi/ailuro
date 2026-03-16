@@ -34,7 +34,7 @@ public:
 
 protected:
   /// Set _yield_stress = sigma_0 (called from computeStressInitialize in parent)
-  virtual void computeYieldStress(const GenericRankFourTensor<is_ad> & elasticity_tensor) override;
+  // virtual void computeYieldStress(const GenericRankFourTensor<is_ad> & elasticity_tensor) override;
 
   /// Hardening above initial yield: H = sigma_0 * [(1 + eps_p/eps_0)^n - 1]
   virtual GenericReal<is_ad> computeHardeningValue(const GenericReal<is_ad> & scalar) override;

@@ -43,13 +43,13 @@ IsotropicSwiftLawHardeningStressUpdateTempl<is_ad>::IsotropicSwiftLawHardeningSt
 // computeStressInitialize in the parent class)
 // ---------------------------------------------------------------------------
 
-template <bool is_ad>
-void
-IsotropicSwiftLawHardeningStressUpdateTempl<is_ad>::computeYieldStress(
-    const GenericRankFourTensor<is_ad> & /*elasticity_tensor*/)
-{
-  _yield_stress = _sigma_0;
-}
+// template <bool is_ad>
+// void
+// IsotropicSwiftLawHardeningStressUpdateTempl<is_ad>::computeYieldStress(
+//     const GenericRankFourTensor<is_ad> & /*elasticity_tensor*/)
+// {
+//   _yield_stress = _sigma_0;
+// }
 
 // ---------------------------------------------------------------------------
 // Hardening variable H = sigma_0 * [(1 + eps_p/eps_0)^n - 1]
