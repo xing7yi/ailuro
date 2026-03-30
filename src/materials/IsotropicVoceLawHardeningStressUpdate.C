@@ -37,7 +37,9 @@ GenericReal<is_ad>
 IsotropicVoceLawHardeningStressUpdateTempl<is_ad>::computeHardeningValue(
     const GenericReal<is_ad> & scalar)
 {
-  _hardening_variable[_qp] = _q * (1.0 - std::exp(-_b * scalar));
+  using std::exp;
+
+  _hardening_variable[_qp] = _q * (1.0 - exp(-_b * scalar));
 
   return (_hardening_variable_old[_qp] + _hardening_slope * scalar +
           _b * (_q - _hardening_variable_old[_qp]) *
