@@ -68,10 +68,8 @@ protected:
   /// a string to prepend to the plastic strain Material Property name
   const std::string _plastic_prepend;
 
-//   const Function * _yield_stress_function;
-  const Real & _yield_stress;
+  const Real & _yield_stress;  ///< Mutable: can be overridden by computeYieldStress() in subclasses
   const Real & _hardening_constant;
-//   const Function * const _hardening_function;
 
   GenericReal<is_ad> _yield_condition;
   GenericReal<is_ad> _hardening_slope;
