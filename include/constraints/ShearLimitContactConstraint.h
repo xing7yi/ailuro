@@ -21,6 +21,8 @@ public:
 protected:
   void applyShearLimit(const Node & node, PenetrationInfo * pinfo);
 
-  /// Maximum shear traction (stress units)
-  const Real _shear_limit;
+  /// Maximum shear traction (stress units) – stored as reference to support runtime control
+  const Real & _shear_limit;
+  /// Optional: when > 0, overrides shear_limit with yield_stress_for_shear / sqrt(3)  (von Mises)
+  const Real & _ys_for_shear;
 };

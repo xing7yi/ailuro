@@ -41,8 +41,8 @@ protected:
   virtual GenericReal<is_ad> computeHardeningDerivative(const GenericReal<is_ad> & scalar) override;
 
   // --- Swift law parameters (sigma_0 == yield_stress from parent) ---
-  const Real _eps_0;   ///< Reference plastic strain
-  const Real _n;       ///< Hardening exponent
+  const Real & _eps_0;   ///< Reference plastic strain
+  const Real & _n;       ///< Hardening exponent
 };
 
 typedef IsotropicSwiftLawHardeningStressUpdateTempl<false> IsotropicSwiftLawHardeningStressUpdate;

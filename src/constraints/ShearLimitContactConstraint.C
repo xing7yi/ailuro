@@ -16,11 +16,17 @@ ShearLimitContactConstraint::validParams()
   params.addParam<Real>("shear_limit", -1.0,
       "Maximum allowed shear traction (stress units, e.g. cohesion c). "
       "Negative value (default): disabled, degrades to standard Coulomb friction.");
+  params.addParam<Real>("yield_stress_for_shear", -1.0,
+      "When > 0, overrides shear_limit with yield_stress_for_shear / sqrt(3) (von Mises criterion). "
+      "Declare the same sampler column as Materials yield_stress to keep them in sync.");
+  params.declareControllable("shear_limit yield_stress_for_shear");
   return params;
 }
 
 ShearLimitContactConstraint::ShearLimitContactConstraint(const InputParameters & parameters)
-  : MechanicalContactConstraint(parameters), _shear_limit(getParam<Real>("shear_limit"))
+  : MechanicalContactConstraint(parameters),
+    _shear_limit(getParam<Real>("shear_limit")),
+    _ys_for_shear(getParam<Real>("yield_stress_for_shear"))
 {
   if (_formulation != ContactFormulation::TANGENTIAL_PENALTY ||
       _model != ContactModel::COULOMB)
@@ -67,8 +73,12 @@ ShearLimitContactConstraint::shouldApply()
 void
 ShearLimitContactConstraint::applyShearLimit(const Node & node, PenetrationInfo * pinfo)
 {
-  // _shear_limit <= 0 means disabled: pure Coulomb, no shear cap
-  if (_shear_limit <= 0.0 || !pinfo->isCaptured())
+  // _ys_for_shear > 0: use von Mises formula; else use explicit _shear_limit.
+  // Either way, a non-positive effective limit means disabled (pure Coulomb).
+  const Real effective_limit = (_ys_for_shear > 0.0)
+                                   ? _ys_for_shear / std::sqrt(3.0)
+                                   : _shear_limit;
+  if (effective_limit <= 0.0 || !pinfo->isCaptured())
     return;
 
   // Decompose force into normal and tangential
@@ -76,8 +86,8 @@ ShearLimitContactConstraint::applyShearLimit(const Node & node, PenetrationInfo 
   const RealVectorValue ft = pinfo->_contact_force - fn;
   const Real tan_mag = ft.norm();
 
-  // Shear force limit = shear_limit_traction * nodal_area
-  const Real shear_force_cap = _shear_limit * nodalArea(node);
+  // Shear force limit = effective shear traction * nodal_area
+  const Real shear_force_cap = effective_limit * nodalArea(node);
 
   if (tan_mag > shear_force_cap && tan_mag > 0.0)
   {
