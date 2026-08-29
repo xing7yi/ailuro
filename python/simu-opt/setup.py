@@ -5,12 +5,19 @@ __version__ = '0.0.1'
 
 setup(
     name='simu-opt',
-    python_requires='>=3.5',
+    python_requires='>=3.10',
     version=__version__,
     description='Particle swarm optimization in Python',
     packages=find_packages(),
     install_requires=[
         'numpy',
         'scipy',
+        'pandas',
+        'pyyaml',
     ],
+    entry_points={
+        'console_scripts': [
+            'simuopt-batch=simuopt.batch:main',
+        ],
+    },
 )
