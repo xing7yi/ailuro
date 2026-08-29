@@ -188,7 +188,8 @@ class PSOOptimizer():
 
     def __init__(self, func, config:PSOConfig, 
                  output_dir='pso_output', output_interval=1, 
-                 callback=None, callback_interval=1, 
+                 callback=None, callback_interval=1,
+                 n_processes=0,
                  ):
         """
         初始化PSO优化器
@@ -198,9 +199,10 @@ class PSOOptimizer():
             config: PSO配置参数
             callback: 回调函数，签名为 callback(optimizer, iter_num)
             callback_interval: 回调函数调用间隔（迭代次数）
+            n_processes: 并行进程/线程数，0 表示自动（由 func.mode 决定）
         """
         self.cfg = config
-        self.func = func_transformer(func)
+        self.func = func_transformer(func, n_processes=n_processes)
 
         # 初始化粒子群
         init_pos = None
@@ -289,7 +291,6 @@ class PSOOptimizer():
             print(f"  系统总核心数: {info['total_cores']}")
             
             print(f"{'='*60}\n")
-        
 
 
     def print_statistics(self, iter_num, current_time, printed_header):
